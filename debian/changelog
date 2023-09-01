@@ -1,8 +1,14 @@
 gnome-shell (45~beta.1-1) UNRELEASED; urgency=medium
 
   * New upstream release
+  * Build with mutter 45 beta
+  * Don't Build-Depend on gtk3
+  * Depend on gir1.2-webkit-6.0 instead of 4.1
+  * Add patch to avoid using Tecla because it isn't ready yet
+  * Drop patch applied in new release
+  * Refresh patches
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 01 Sep 2023 11:26:59 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 01 Sep 2023 11:47:12 -0400
 
 gnome-shell (44.4-1) unstable; urgency=medium
 
