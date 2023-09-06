@@ -18,9 +18,9 @@ script_data.set('pkglibdir', pkglibdir)
 script_data.set('PYTHON', python.full_path())
 script_data.set('VERSION', meson.project_version())
 
-perf_tool = configure_file(
-  input: 'gnome-shell-perf-tool.in',
-  output: 'gnome-shell-perf-tool',
+test_tool = configure_file(
+  input: 'gnome-shell-test-tool.in',
+  output: 'gnome-shell-test-tool',
   configuration: script_data,
   install_dir: bindir
 )
@@ -57,13 +57,15 @@ gnome_shell_deps = [
   atk_bridge_dep,
   gdk_pixbuf_dep,
   gjs_dep,
+  mtk_dep,
   clutter_dep,
   cogl_pango_dep,
   startup_dep,
   gi_dep,
   polkit_dep,
   gcr_dep,
-  libsystemd_dep
+  libsystemd_dep,
+  libpipewire_dep,
 ]
 
 gnome_shell_deps += nm_deps
@@ -82,7 +84,7 @@ libshell_menu_sources = [
 
 libshell_menu = library('gnome-shell-menu',
   sources: libshell_menu_sources,
-  dependencies: [gio_dep, clutter_dep],
+  dependencies: [gio_dep, clutter_dep, mtk_dep],
   include_directories: conf_inc,
   build_rpath: mutter_typelibdir,
   install_rpath: mutter_typelibdir,
@@ -97,6 +99,7 @@ libshell_public_headers = [
   'shell-app-system.h',
   'shell-app-usage.h',
   'shell-blur-effect.h',
+  'shell-camera-monitor.h',
   'shell-glsl-effect.h',
   'shell-global.h',
   'shell-invert-lightness-effect.h',
@@ -136,6 +139,7 @@ libshell_sources = [
   'shell-app-system.c',
   'shell-app-usage.c',
   'shell-blur-effect.c',
+  'shell-camera-monitor.c',
   'shell-global.c',
   'shell-glsl-effect.c',
   'shell-invert-lightness-effect.c',
@@ -260,7 +264,7 @@ if have_networkmanager
   )
 endif
 
-executable('gnome-shell-perf-helper', 'shell-perf-helper.c',
+executable('gnome-shell-perf-helper', 'shell-perf-helper.c', js_resources,
   dependencies: [gtk_dep, gio_dep, m_dep],
   include_directories: [conf_inc],
   install_dir: libexecdir,
@@ -268,7 +272,7 @@ executable('gnome-shell-perf-helper', 'shell-perf-helper.c',
 )
 
 executable('run-js-test', 'run-js-test.c',
-  dependencies: [mutter_dep, gdk_pixbuf_dep, gio_dep, gi_dep, gjs_dep],
+  dependencies: [mutter_dep, mtk_dep, gdk_pixbuf_dep, gio_dep, gi_dep, gjs_dep],
   include_directories: [conf_inc],
   link_with: libshell,
   build_rpath: mutter_typelibdir,

@@ -13,6 +13,7 @@ js/gdm/loginDialog.js
 js/gdm/util.js
 js/misc/systemActions.js
 js/misc/util.js
+js/misc/dateUtils.js
 js/portalHelper/main.js
 js/ui/accessDialog.js
 js/ui/appDisplay.js
@@ -60,6 +61,7 @@ js/ui/shellMountOperation.js
 js/ui/status/accessibility.js
 js/ui/status/autoRotate.js
 js/ui/status/backgroundApps.js
+js/ui/status/backlight.js
 js/ui/status/bluetooth.js
 js/ui/status/brightness.js
 js/ui/status/darkMode.js
@@ -106,5 +108,6 @@ subprojects/extensions-tool/src/command-uninstall.c
 subprojects/extensions-tool/src/main.c
 subprojects/extensions-tool/src/templates/00-plain.desktop.in
 subprojects/extensions-tool/src/templates/indicator.desktop.in
+subprojects/extensions-tool/src/templates/quick-settings.desktop.in
 # Please do not remove this file from POTFILES.in. Run "git submodule init && git submodule update" to get it.
 subprojects/gvc/gvc-mixer-control.c

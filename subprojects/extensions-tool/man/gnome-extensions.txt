@@ -128,8 +128,17 @@ Creates a new extension from a template.
   *--uuid*='UUID':::
     Set the unique extension ID in the metadata to 'UUID'
 
+  *--gettext-domain*='DOMAIN':::
+    Set the gettext domain used by the extension
+
+  *--settings-schema*='SCHEMA':::
+    Set the GSettings schema used by the extension
+
   *--template*='TEMPLATE':::
     Use 'TEMPLATE' as base for the new extension
+
+  *--prefs*:::
+    Include a prefs.js template
 
   *-i*:::
   *--interactive*:::
@@ -140,9 +149,10 @@ Creates a new extension from a template.
 Creates an extension bundle that is suitable for publishing.
 +
 The bundle will always include the required files extension.js
-and metadata.json, as well as the optional stylesheet.css and
-prefs.js if found. Each additional source that should be included
-must be specified with *--extra-source*.
+and metadata.json, as well as any of the optional stylesheet.css,
+stylesheet-dark.css, stylesheet-light.css or prefs.js if found.
+Each additional source that should be included must be specified
+with *--extra-source*.
 +
 If the extension includes one or more GSettings schemas, they can
 either be placed in a schemas/ folder to be picked up automatically,

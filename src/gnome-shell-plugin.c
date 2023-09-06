@@ -42,6 +42,7 @@
 #include <meta/meta-plugin.h>
 #include <meta/meta-x11-display.h>
 #include <meta/util.h>
+#include <mtk/mtk.h>
 
 #include "shell-global-private.h"
 #include "shell-perf-log.h"
@@ -105,9 +106,6 @@ static void
 gnome_shell_plugin_start (MetaPlugin *plugin)
 {
   GnomeShellPlugin *shell_plugin = GNOME_SHELL_PLUGIN (plugin);
-  GError *error = NULL;
-  uint8_t status;
-  GjsContext *gjs_context;
   ClutterBackend *backend;
 
   backend = clutter_get_default_backend ();
@@ -123,30 +121,6 @@ gnome_shell_plugin_start (MetaPlugin *plugin)
 
   shell_plugin->global = shell_global_get ();
   _shell_global_set_plugin (shell_plugin->global, META_PLUGIN (shell_plugin));
-
-  gjs_context = _shell_global_get_gjs_context (shell_plugin->global);
-
-  if (!gjs_context_eval_module_file (gjs_context,
-                                     "resource:///org/gnome/shell/ui/init.js",
-                                     &status,
-                                     &error))
-    {
-      g_message ("Execution of main.js threw exception: %s", error->message);
-      g_error_free (error);
-      /* We just exit() here, since in a development environment you'll get the
-       * error in your shell output, and it's way better than a busted WM,
-       * which typically manifests as a white screen.
-       *
-       * In production, we shouldn't crash =)  But if we do, we should get
-       * restarted by the session infrastructure, which is likely going
-       * to be better than some undefined state.
-       *
-       * If there was a generic "hook into bug-buddy for non-C crashes"
-       * infrastructure, here would be the place to put it.
-       */
-      g_object_unref (gjs_context);
-      exit (1);
-    }
 }
 
 static ShellWM *
@@ -192,8 +166,8 @@ static void
 gnome_shell_plugin_size_change (MetaPlugin         *plugin,
                                 MetaWindowActor    *actor,
                                 MetaSizeChange      which_change,
-                                MetaRectangle      *old_frame_rect,
-                                MetaRectangle      *old_buffer_rect)
+                                MtkRectangle       *old_frame_rect,
+                                MtkRectangle       *old_buffer_rect)
 {
   _shell_wm_size_change (get_shell_wm (), actor, which_change, old_frame_rect, old_buffer_rect);
 }
@@ -239,7 +213,7 @@ gnome_shell_plugin_kill_switch_workspace (MetaPlugin         *plugin)
 static void
 gnome_shell_plugin_show_tile_preview (MetaPlugin      *plugin,
                                       MetaWindow      *window,
-                                      MetaRectangle   *tile_rect,
+                                      MtkRectangle    *tile_rect,
                                       int              tile_monitor)
 {
   _shell_wm_show_tile_preview (get_shell_wm (), window, tile_rect, tile_monitor);
@@ -265,7 +239,7 @@ static void
 gnome_shell_plugin_show_window_menu_for_rect (MetaPlugin         *plugin,
                                               MetaWindow         *window,
                                               MetaWindowMenuType  menu,
-                                              MetaRectangle      *rect)
+                                              MtkRectangle       *rect)
 {
   _shell_wm_show_window_menu_for_rect (get_shell_wm (), window, menu, rect);
 }

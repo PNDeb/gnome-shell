@@ -27,6 +27,7 @@
 #include <meta/meta-settings.h>
 #include <meta/meta-workspace-manager.h>
 #include <meta/meta-x11-display.h>
+#include <mtk/mtk.h>
 
 #define GNOME_DESKTOP_USE_UNSTABLE_API
 #include <libgnome-desktop/gnome-systemd.h>
@@ -73,6 +74,7 @@ struct _ShellGlobal {
   char *userdatadir;
   GFile *userdatadir_path;
   GFile *runtime_state_path;
+  GFile *automation_script;
 
   ShellWindowTracker *window_tracker;
   ShellAppSystem *app_system;
@@ -120,6 +122,7 @@ enum {
   PROP_FRAME_FINISH_TIMESTAMP,
   PROP_SWITCHEROO_CONTROL,
   PROP_FORCE_ANIMATIONS,
+  PROP_AUTOMATION_SCRIPT,
 
   N_PROPS
 };
@@ -249,6 +252,9 @@ shell_global_set_property(GObject         *object,
     case PROP_FORCE_ANIMATIONS:
       global->force_animations = g_value_get_boolean (value);
       break;
+    case PROP_AUTOMATION_SCRIPT:
+      g_set_object (&global->automation_script, g_value_get_object (value));
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -337,6 +343,9 @@ shell_global_get_property(GObject         *object,
       break;
     case PROP_FORCE_ANIMATIONS:
       g_value_set_boolean (value, global->force_animations);
+      break;
+    case PROP_AUTOMATION_SCRIPT:
+      g_value_set_object (value, global->automation_script);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -688,6 +697,13 @@ shell_global_class_init (ShellGlobalClass *klass)
                           FALSE,
                           G_PARAM_READWRITE  | G_PARAM_CONSTRUCT| G_PARAM_STATIC_STRINGS);
 
+  props[PROP_AUTOMATION_SCRIPT] =
+    g_param_spec_object ("automation-script",
+                         "automation-script",
+                         "Automation script to run after startup",
+                         G_TYPE_FILE,
+                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
   g_object_class_install_properties (gobject_class, N_PROPS, props);
 }
 
@@ -829,7 +845,7 @@ sync_input_region (ShellGlobal *global)
 /**
  * shell_global_set_stage_input_region:
  * @global: the #ShellGlobal
- * @rectangles: (element-type Meta.Rectangle): a list of #MetaRectangle
+ * @rectangles: (element-type Mtk.Rectangle): a list of #MtkRectangle
  * describing the input region.
  *
  * Sets the area of the stage that is responsive to mouse clicks when
@@ -839,7 +855,7 @@ void
 shell_global_set_stage_input_region (ShellGlobal *global,
                                      GSList      *rectangles)
 {
-  MetaRectangle *rect;
+  MtkRectangle *rect;
   XRectangle *rects;
   int nrects, i;
   GSList *r;
@@ -853,7 +869,7 @@ shell_global_set_stage_input_region (ShellGlobal *global,
   rects = g_new (XRectangle, nrects);
   for (r = rectangles, i = 0; r; r = r->next, i++)
     {
-      rect = (MetaRectangle *)r->data;
+      rect = (MtkRectangle *)r->data;
       rects[i].x = rect->x;
       rects[i].y = rect->y;
       rects[i].width = rect->width;

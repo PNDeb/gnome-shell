@@ -1,13 +1,18 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
-/* exported Indicator */
+import 'gi://GnomeBluetooth?version=3.0';
 
-const {Gio, GLib, GnomeBluetooth, GObject, Pango, St} = imports.gi;
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import GnomeBluetooth from 'gi://GnomeBluetooth';
+import GObject from 'gi://GObject';
+import Pango from 'gi://Pango';
+import St from 'gi://St';
 
-const {Spinner} = imports.ui.animation;
-const PopupMenu = imports.ui.popupMenu;
-const {QuickMenuToggle, SystemIndicator} = imports.ui.quickSettings;
+import {Spinner} from '../animation.js';
+import * as PopupMenu from '../popupMenu.js';
+import {QuickMenuToggle, SystemIndicator} from '../quickSettings.js';
 
-const {loadInterfaceXML} = imports.misc.fileUtils;
+import {loadInterfaceXML} from '../../misc/fileUtils.js';
 
 const {AdapterState} = GnomeBluetooth;
 
@@ -18,6 +23,8 @@ const RfkillManagerInterface = loadInterfaceXML('org.gnome.SettingsDaemon.Rfkill
 const rfkillManagerInfo = Gio.DBusInterfaceInfo.new_for_xml(RfkillManagerInterface);
 
 Gio._promisify(GnomeBluetooth.Client.prototype, 'connect_service');
+
+const STATE_CHANGE_FAILED_TIMEOUT_MS = 30 * 1000;
 
 const BtClient = GObject.registerClass({
     Properties: {
@@ -42,10 +49,11 @@ const BtClient = GObject.registerClass({
         this._client = new GnomeBluetooth.Client();
         this._client.connect('notify::default-adapter-powered', () => {
             this.notify('active');
-            this.notify('available');
         });
-        this._client.connect('notify::default-adapter-state',
-            () => this.notify('adapter-state'));
+        this._client.connect('notify::default-adapter-state', () => {
+            delete this._predictedState;
+            this.notify('adapter-state');
+        });
         this._client.connect('notify::default-adapter', () => {
             const newAdapter = this._client.default_adapter ?? null;
 
@@ -54,7 +62,6 @@ const BtClient = GObject.registerClass({
             this.emit('devices-changed');
 
             this.notify('active');
-            this.notify('available');
         });
 
         this._proxy = new Gio.DBusProxy({
@@ -96,9 +103,8 @@ const BtClient = GObject.registerClass({
     get available() {
         // If we have an rfkill switch, make sure it's not a hardware
         // one as we can't get out of it in software
-        return this._proxy.BluetoothHasAirplaneMode
-            ? !this._proxy.BluetoothHardwareAirplaneMode
-            : this.active;
+        return this._proxy.BluetoothHasAirplaneMode &&
+            !this._proxy.BluetoothHardwareAirplaneMode;
     }
 
     get active() {
@@ -106,11 +112,30 @@ const BtClient = GObject.registerClass({
     }
 
     get adapter_state() {
+        if (this._predictedState !== undefined)
+            return this._predictedState;
         return this._client.default_adapter_state;
     }
 
     toggleActive() {
-        this._proxy.BluetoothAirplaneMode = this.active;
+        const {active} = this;
+
+        // on many systems, there's a significant delay until the rfkill
+        // state results in an adapter state change; work around that by
+        // overriding the current state with the expected transition
+        this._predictedState = active
+            ? AdapterState.TURNING_OFF
+            : AdapterState.TURNING_ON;
+        this.notify('adapter-state');
+
+        // toggling the state *really* should result in an adapter-state
+        // change eventually (even on error), but just to be sure to not
+        // be stuck with the overriden state, force a notify signal after
+        // a timeout
+        setTimeout(() => this._client.notify('default-adapter-state'),
+            STATE_CHANGE_FAILED_TIMEOUT_MS);
+
+        this._proxy.BluetoothAirplaneMode = active;
         if (!this._client.default_adapter_powered)
             this._client.default_adapter_powered = true;
     }
@@ -252,7 +277,6 @@ class BluetoothToggle extends QuickMenuToggle {
             ellipsize: Pango.EllipsizeMode.NONE,
             line_wrap: true,
         });
-        this._placeholderItem.setOrnament(PopupMenu.Ornament.HIDDEN);
         this.menu.addMenuItem(this._placeholderItem);
 
         this._deviceSection.actor.bind_property('visible',
@@ -390,7 +414,7 @@ class BluetoothToggle extends QuickMenuToggle {
     }
 });
 
-var Indicator = GObject.registerClass(
+export const Indicator = GObject.registerClass(
 class Indicator extends SystemIndicator {
     _init() {
         super._init();

@@ -1,6 +1,6 @@
 include:
   - remote: 'https://gitlab.gnome.org/GNOME/citemplates/raw/HEAD/flatpak/flatpak_ci_initiative.yml'
-  - remote: 'https://gitlab.freedesktop.org/freedesktop/ci-templates/-/raw/34f4ade99434043f88e164933f570301fd18b125/templates/fedora.yml'
+  - remote: 'https://gitlab.freedesktop.org/freedesktop/ci-templates/-/raw/057b052e682d8e5a20c1eb2dd60d5b87d2b56856/templates/fedora.yml'
   - remote: 'https://gitlab.freedesktop.org/freedesktop/ci-templates/-/raw/34f4ade99434043f88e164933f570301fd18b125/templates/ci-fairy.yml'
 
 stages:
@@ -13,7 +13,7 @@ stages:
   - deploy
 
 default:
-  image: registry.gitlab.gnome.org/gnome/mutter/fedora/37:x86_64-2023-02-22.0
+  image: $MUTTER_CI_IMAGE
   # Cancel jobs if newer commits are pushed to the branch
   interruptible: true
   # Auto-retry jobs in case of infra failures
@@ -26,6 +26,7 @@ default:
       - 'api_failure'
 
 variables:
+  MUTTER_CI_IMAGE: registry.gitlab.gnome.org/gnome/mutter/fedora/39:x86_64-2023-08-31.0
   FDO_UPSTREAM_REPO: GNOME/gnome-shell
   BUNDLE: "extensions-git.flatpak"
   LINT_LOG: "eslint-report.xml"
@@ -47,21 +48,21 @@ workflow:
 
 .gnome-shell.fedora:
   variables:
-    FDO_DISTRIBUTION_VERSION: 38
-    FDO_DISTRIBUTION_TAG: '2023-04-21.1'
+    FDO_DISTRIBUTION_VERSION: 39
+    FDO_DISTRIBUTION_TAG: '2023-08-15.1'
     FDO_DISTRIBUTION_PACKAGES:
       gjs
       nodejs
       npm
       meson
-      pkgconfig(gobject-introspection-1.0)
-      pkgconfig(gio-2.0)
-      pkgconfig(gio-unix-2.0)
-      pkgconfig(gnome-autoar-0)
-      pkgconfig(json-glib-1.0)
+      'pkgconfig(gobject-introspection-1.0)'
+      'pkgconfig(gio-2.0)'
+      'pkgconfig(gio-unix-2.0)'
+      'pkgconfig(gnome-autoar-0)'
+      'pkgconfig(json-glib-1.0)'
     FDO_DISTRIBUTION_EXEC: |
       # For static analysis with eslint
-      npm install -g eslint eslint-plugin-jsdoc &&
+      npm install -g eslint@^8.0.0 eslint-plugin-jsdoc@^46.0.0 &&
 
       dnf group install -y 'Development Tools' \
                  'C Development Tools and Libraries' &&
@@ -141,27 +142,10 @@ eslint:
   stage: review
   script:
     - export NODE_PATH=$(npm root -g)
-    - ./.gitlab-ci/run-eslint --output-file ${LINT_LOG} --format junit
+    - ./.gitlab-ci/run-eslint --output-file ${LINT_LOG} --format junit --stdout
   artifacts:
     reports:
       junit: ${LINT_LOG}
-    when: always
-
-eslint_mr:
-  extends:
-    - .fdo.distribution-image@fedora
-    - .gnome-shell.fedora
-  stage: review
-  script:
-    - export NODE_PATH=$(npm root -g)
-    - ./.gitlab-ci/run-eslint --output-file ${LINT_MR_LOG} --format junit
-      --remote ${CI_MERGE_REQUEST_PROJECT_URL}.git
-      --branch ${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}
-  only:
-    - merge_requests
-  artifacts:
-    reports:
-      junit: ${LINT_MR_LOG}
     when: always
 
 potfile_c_check:
@@ -191,11 +175,11 @@ build:
   before_script:
     - .gitlab-ci/checkout-mutter.sh
     - meson mutter mutter/build --prefix=/usr
-    - meson install -C mutter/build
+    - sudo meson install -C mutter/build
   script:
-    - meson . build -Dbuildtype=debugoptimized -Dman=false --werror
+    - meson setup . build -Dbuildtype=debugoptimized -Dman=false --werror --fatal-meson-warnings
     - meson compile -C build
-    - meson install -C build
+    - sudo meson install -C build
   artifacts:
     expire_in: 1 day
     paths:
@@ -210,7 +194,7 @@ test:
     XDG_RUNTIME_DIR: "$CI_PROJECT_DIR/runtime-dir"
     NO_AT_BRIDGE: "1"
   before_script:
-    - meson install -C mutter/build
+    - sudo meson install -C mutter/build
     - mkdir -m 700 $XDG_RUNTIME_DIR
   script:
     - dbus-run-session -- xvfb-run meson test -C build --no-rebuild
@@ -233,7 +217,7 @@ test-coverity:
   variables:
     GIT_SUBMODULE_STRATEGY: normal
   before_script:
-    - meson install -C mutter/build
+    - sudo meson install -C mutter/build
   script:
     - .gitlab-ci/download-coverity-tarball.sh
     - CC=clang meson coverity-build -Dman=false
@@ -271,7 +255,7 @@ dist:
   stage: deploy
   needs: ["build"]
   before_script:
-    - meson install -C mutter/build
+    - sudo meson install -C mutter/build
     - mkdir -m 700 $XDG_RUNTIME_DIR
   script:
     - dbus-run-session xvfb-run meson dist -C build
@@ -290,3 +274,13 @@ dist-tarball:
       - build/meson-dist/$CI_PROJECT_NAME-$CI_COMMIT_TAG.tar.xz
   rules:
     - if: '$CI_COMMIT_TAG'
+
+build-toolbox:
+  image: quay.io/freedesktop.org/ci-templates:container-build-base-2021-07-29.0
+  stage: deploy
+  needs: []
+  script:
+    - .gitlab-ci/build-toolbox-image.sh $MUTTER_CI_IMAGE
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PROJECT_NAMESPACE == "GNOME"'
+    - if: '$CI_COMMIT_BRANCH =~ /^gnome-[0-9-]+$/ && $CI_PROJECT_NAMESPACE == "GNOME"'
