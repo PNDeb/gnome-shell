@@ -1,14 +1,16 @@
-gnome-shell (45~rc-1) UNRELEASED; urgency=medium
+gnome-shell (45~rc-1) experimental; urgency=medium
 
   * New upstream release
-  * Build with mutter 45 beta
-  * Don't Build-Depend on gtk3
-  * Depend on gir1.2-webkit-6.0 instead of 4.1
+  * Build with mutter 45 rc
+  * debian/control.in: Don't Build-Depend on gtk3
+  * debian/control.in: Depend on gir1.2-webkit-6.0 instead of 4.1
+  * debian/gnome-shell.install: gnome-shell-perf-tool -> gnome-shell-test-tool
+  * debian/rules: Drop obsolete configure flag
   * Add patch to avoid using Tecla because it isn't ready yet
   * Drop patch applied in new release
   * Refresh patches
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 01 Sep 2023 11:47:12 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 10 Sep 2023 21:19:28 -0400
 
 gnome-shell (44.4-1) unstable; urgency=medium
 
