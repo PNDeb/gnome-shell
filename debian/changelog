@@ -1,4 +1,4 @@
-gnome-shell (45~beta.1-1) UNRELEASED; urgency=medium
+gnome-shell (45~rc-1) UNRELEASED; urgency=medium
 
   * New upstream release
   * Build with mutter 45 beta
