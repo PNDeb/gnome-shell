@@ -1,10 +1,11 @@
-gnome-shell (45.0-1) UNRELEASED; urgency=medium
+gnome-shell (45.0-1) experimental; urgency=medium
 
   * New upstream release
     - Fix exposing window previews on lock screen via keyboard shortcuts
       (Closes: #1052067, CVE-2023-43090, gnome-shell#6990)
+  * Bump minimum mutter to 45.0
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 18 Sep 2023 10:59:22 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Mon, 18 Sep 2023 11:01:45 -0400
 
 gnome-shell (45~rc-1) experimental; urgency=medium
 
