@@ -1,12 +1,13 @@
-gnome-shell (45.1-1) UNRELEASED; urgency=medium
+gnome-shell (45.1-1) experimental; urgency=medium
 
   [ Jeremy Bícha ]
   * New upstream release (LP: #2043015)
+  * Stop using debian/control.in and dh_gnome_clean
 
   [ Simon McVittie ]
   * Merge with version 44.5-2 from unstable
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 08 Nov 2023 15:29:55 +0200
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 08 Nov 2023 15:31:57 +0200
 
 gnome-shell (45.0-1) experimental; urgency=medium
 
