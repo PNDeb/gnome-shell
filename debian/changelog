@@ -1,8 +1,12 @@
-gnome-shell (45.0-2) UNRELEASED; urgency=medium
+gnome-shell (45.1-1) UNRELEASED; urgency=medium
 
+  [ Jeremy Bícha ]
+  * New upstream release (LP: #2043015)
+
+  [ Simon McVittie ]
   * Merge with version 44.5-2 from unstable
 
- -- Simon McVittie <smcv@debian.org>  Wed, 27 Sep 2023 17:34:22 +0100
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 08 Nov 2023 15:29:55 +0200
 
 gnome-shell (45.0-1) experimental; urgency=medium
 
