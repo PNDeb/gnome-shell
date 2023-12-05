@@ -1,8 +1,8 @@
-gnome-shell (45.2-1) UNRELEASED; urgency=medium
+gnome-shell (45.2-1) experimental; urgency=medium
 
-  * New upstream release
+  * New upstream release (LP: #2045667)
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 05 Dec 2023 10:07:52 -0500
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 05 Dec 2023 10:15:19 -0500
 
 gnome-shell (45.1-1) experimental; urgency=medium
 
