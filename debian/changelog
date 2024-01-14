@@ -1,3 +1,11 @@
+gnome-shell (45.3-2) UNRELEASED; urgency=medium
+
+  * Merge packaging changes from unstable
+    - Build-depend on systemd-dev instead of systemd (Closes: #1060607)
+    - Adjust Lintian overrides
+
+ -- Simon McVittie <smcv@debian.org>  Sun, 14 Jan 2024 21:51:16 +0000
+
 gnome-shell (44.7-2) unstable; urgency=medium
 
   * Team upload
