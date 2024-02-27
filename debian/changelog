@@ -1,8 +1,9 @@
-gnome-shell (44.9-1) UNRELEASED; urgency=medium
+gnome-shell (44.9-1) unstable; urgency=medium
 
   * New upstream release
+  * Build with gcr4
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 27 Feb 2024 15:47:51 -0500
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 27 Feb 2024 16:47:08 -0500
 
 gnome-shell (44.8-1) unstable; urgency=medium
 
