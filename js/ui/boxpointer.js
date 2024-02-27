@@ -438,13 +438,13 @@ var BoxPointer = GObject.registerClass({
                 () => (this._sourceActor = null), this);
         }
 
-        this._arrowAlignment = alignment;
+        this._arrowAlignment = Math.clamp(alignment, 0.0, 1.0);
 
         this.queue_relayout();
     }
 
     setSourceAlignment(alignment) {
-        this._sourceAlignment = alignment;
+        this._sourceAlignment = Math.clamp(alignment, 0.0, 1.0);
 
         if (!this._sourceActor)
             return;
@@ -525,6 +525,9 @@ var BoxPointer = GObject.registerClass({
         switch (this._arrowSide) {
         case St.Side.TOP:
         case St.Side.BOTTOM:
+            if (this.text_direction === Clutter.TextDirection.RTL)
+                alignment = 1.0 - alignment;
+
             resX = sourceCenterX - (halfMargin + (natWidth - margin) * alignment);
 
             resX = Math.max(resX, workarea.x + padding);
