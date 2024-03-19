@@ -36,6 +36,8 @@ import * as GdmUtil from './util.js';
 import * as Layout from '../ui/layout.js';
 import * as LoginManager from '../misc/loginManager.js';
 import * as Main from '../ui/main.js';
+import * as MessageTray from '../ui/messageTray.js';
+import * as ModalDialog from '../ui/modalDialog.js';
 import * as PopupMenu from '../ui/popupMenu.js';
 import * as Realmd from './realmd.js';
 import * as UserWidget from '../ui/userWidget.js';
@@ -43,6 +45,7 @@ import * as UserWidget from '../ui/userWidget.js';
 const _FADE_ANIMATION_TIME = 250;
 const _SCROLL_ANIMATION_TIME = 500;
 const _TIMED_LOGIN_IDLE_THRESHOLD = 5.0;
+const _CONFLICTING_SESSION_DIALOG_TIMEOUT = 60;
 
 export const UserListItem = GObject.registerClass({
     Signals: {'activate': {}},
@@ -50,6 +53,7 @@ export const UserListItem = GObject.registerClass({
     _init(user) {
         let layout = new St.BoxLayout({
             vertical: true,
+            x_expand: true,
         });
         super._init({
             style_class: 'login-dialog-user-list-item',
@@ -68,7 +72,7 @@ export const UserListItem = GObject.registerClass({
         });
 
         this._userWidget = new UserWidget.UserWidget(this.user);
-        layout.add(this._userWidget);
+        layout.add_child(this._userWidget);
 
         this._userWidget.bind_property('label-actor',
             this, 'label-actor',
@@ -79,7 +83,7 @@ export const UserListItem = GObject.registerClass({
             scale_x: 0,
             visible: false,
         });
-        layout.add(this._timedLoginIndicator);
+        layout.add_child(this._timedLoginIndicator);
 
         this._onUserChanged();
     }
@@ -169,9 +173,6 @@ const UserList = GObject.registerClass({
             x_expand: true,
             y_expand: true,
         });
-        this.set_policy(
-            St.PolicyType.NEVER,
-            St.PolicyType.AUTOMATIC);
 
         this._box = new St.BoxLayout({
             vertical: true,
@@ -179,7 +180,7 @@ const UserList = GObject.registerClass({
             pseudo_class: 'expanded',
         });
 
-        this.add_actor(this._box);
+        this.child = this._box;
         this._items = {};
     }
 
@@ -226,7 +227,7 @@ const UserList = GObject.registerClass({
     scrollToItem(item) {
         let box = item.get_allocation_box();
 
-        let adjustment = this.get_vscroll_bar().get_adjustment();
+        const adjustment = this.vadjustment;
 
         let value = (box.y1 + adjustment.step_increment / 2.0) - (adjustment.page_size / 2.0);
         adjustment.ease(value, {
@@ -238,7 +239,7 @@ const UserList = GObject.registerClass({
     jumpToItem(item) {
         let box = item.get_allocation_box();
 
-        let adjustment = this.get_vscroll_bar().get_adjustment();
+        const adjustment = this.vadjustment;
 
         let value = (box.y1 + adjustment.step_increment / 2.0) - (adjustment.page_size / 2.0);
 
@@ -333,7 +334,7 @@ const SessionMenuButton = GObject.registerClass({
         this._button = button;
 
         this._menu = new PopupMenu.PopupMenu(this._button, 0, St.Side.BOTTOM);
-        Main.uiGroup.add_actor(this._menu.actor);
+        Main.uiGroup.add_child(this._menu.actor);
         this._menu.actor.hide();
 
         this._menu.connect('open-state-changed', (menu, isOpen) => {
@@ -367,7 +368,7 @@ const SessionMenuButton = GObject.registerClass({
             if (itemIds[i] === this._activeSessionId)
                 this._items[itemIds[i]].setOrnament(PopupMenu.Ornament.DOT);
             else
-                this._items[itemIds[i]].setOrnament(PopupMenu.Ornament.NONE);
+                this._items[itemIds[i]].setOrnament(PopupMenu.Ornament.NO_DOT);
         }
     }
 
@@ -405,6 +406,76 @@ const SessionMenuButton = GObject.registerClass({
                 this.emit('session-activated', this._activeSessionId);
             });
         }
+    }
+});
+
+export const ConflictingSessionDialog = GObject.registerClass({
+    Signals: {
+        'cancel': {},
+        'force-stop': {},
+    },
+}, class ConflictingSessionDialog extends ModalDialog.ModalDialog {
+    _init(conflictingSession, greeterSession, userName) {
+        super._init();
+
+        let bannerText;
+        if (greeterSession.Remote && conflictingSession.Remote)
+            /* Translators: is running for <username> */
+            bannerText = _('Remote login is not possible because a remote session is already running for %s. To login remotely, you must log out from the remote session or force stop it.').format(userName);
+        else if (!greeterSession.Remote && conflictingSession.Remote)
+            /* Translators: is running for <username> */
+            bannerText = _('Login is not possible because a remote session is already running for %s. To login, you must log out from the remote session or force stop it.').format(userName);
+        else if (greeterSession.Remote && !conflictingSession.Remote)
+            /* Translators: is running for <username> */
+            bannerText = _('Remote login is not possible because a local session is already running for %s. To login remotely, you must log out from the local session or force stop it.').format(userName);
+        else
+            /* Translators: is running for <username> */
+            bannerText = _('Login is not possible because a session is already running for %s. To login, you must log out from the session or force stop it.').format(userName);
+
+        let textLayout = new St.BoxLayout({
+            style_class: 'conflicting-session-dialog-content',
+            vertical: true,
+            x_expand: true,
+        });
+
+        let title = new St.Label({
+            text: _('Session Already Running'),
+            style_class: 'conflicting-session-dialog-title',
+        });
+
+        let banner = new St.Label({
+            text: bannerText,
+            style_class: 'conflicting-session-dialog-desc',
+        });
+        banner.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        banner.clutter_text.line_wrap = true;
+
+        let warningBanner = new St.Label({
+            text: _('Force stopping will quit any running apps and processes, and could result in data loss.'),
+            style_class: 'conflicting-session-dialog-desc-warning',
+        });
+        warningBanner.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        warningBanner.clutter_text.line_wrap = true;
+
+        textLayout.add_child(title);
+        textLayout.add_child(banner);
+        textLayout.add_child(warningBanner);
+        this.contentLayout.add_child(textLayout);
+
+        this.addButton({
+            label: _('Cancel'),
+            action: () => {
+                this.emit('cancel');
+            },
+            key: Clutter.KEY_Escape,
+            default: true,
+        });
+        this.addButton({
+            label: _('Force Stop'),
+            action: () => {
+                this.emit('force-stop');
+            },
+        });
     }
 });
 
@@ -487,17 +558,15 @@ export const LoginDialog = GObject.registerClass({
 
         this._userSelectionBox.add_child(this._notListedButton);
 
+        const bannerBox = new St.BoxLayout({vertical: true});
+
         this._bannerView = new St.ScrollView({
             style_class: 'login-dialog-banner-view',
             opacity: 0,
-            vscrollbar_policy: St.PolicyType.AUTOMATIC,
-            hscrollbar_policy: St.PolicyType.NEVER,
+            child: bannerBox,
         });
         this.add_child(this._bannerView);
 
-        let bannerBox = new St.BoxLayout({vertical: true});
-
-        this._bannerView.add_actor(bannerBox);
         this._bannerLabel = new St.Label({
             style_class: 'login-dialog-banner',
             text: '',
@@ -1004,6 +1073,58 @@ export const LoginDialog = GObject.registerClass({
         }, this);
     }
 
+    _notifyConflictingSessionDialogClosed(userName) {
+        const source = new MessageTray.getSystemSource();
+
+        this._conflictingSessionNotification = new MessageTray.Notification({
+            source,
+            title: _('Stop conflicting session dialog closed'),
+            body: _('Try to login again to start a session for user %s.').format(userName),
+            urgency: MessageTray.Urgency.CRITICAL,
+            isTransient: true,
+        });
+        this._conflictingSessionNotification.connect('destroy', () => {
+            this._conflictingSessionNotification = null;
+        });
+
+        source.addNotification(this._conflictingSessionNotification);
+    }
+
+    _showConflictingSessionDialog(serviceName, conflictingSession) {
+        let conflictingSessionDialog = new ConflictingSessionDialog(conflictingSession,
+            this._greeterSessionProxy,
+            this._user.get_user_name());
+
+        conflictingSessionDialog.connect('cancel', () => {
+            this._authPrompt.reset();
+            conflictingSessionDialog.close();
+        });
+        conflictingSessionDialog.connect('force-stop', () => {
+            this._greeter.call_stop_conflicting_session_sync(null);
+        });
+
+        const loginManager = LoginManager.getLoginManager();
+        loginManager.connectObject('session-removed', (lm, sessionId) => {
+            if (sessionId === conflictingSession.Id) {
+                conflictingSessionDialog.close();
+                this._authPrompt.finish(() => this._startSession(serviceName));
+            }
+        }, conflictingSessionDialog);
+
+        const closeDialogTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, _CONFLICTING_SESSION_DIALOG_TIMEOUT, () => {
+            this._notifyConflictingSessionDialogClosed(this._user.get_user_name());
+            conflictingSessionDialog.close();
+            this._authPrompt.reset();
+            return GLib.SOURCE_REMOVE;
+        });
+
+        conflictingSessionDialog.connect('closed', () => {
+            GLib.source_remove(closeDialogTimeoutId);
+        });
+
+        conflictingSessionDialog.open();
+    }
+
     _startSession(serviceName) {
         this._bindOpacity();
         this.ease({
@@ -1017,7 +1138,40 @@ export const LoginDialog = GObject.registerClass({
         });
     }
 
-    _onSessionOpened(client, serviceName) {
+    async _findConflictingSession(ignoreSessionId) {
+        const userName = this._user.get_user_name();
+        const loginManager = LoginManager.getLoginManager();
+        const sessions = await loginManager.listSessions();
+        for (const session of sessions.map(([id, , user, , path]) => ({id, user, path}))) {
+            if (ignoreSessionId === session.id)
+                continue;
+
+            if (userName !== session.user)
+                continue;
+
+            const sessionProxy = loginManager.getSession(session.path);
+
+            if (sessionProxy.Type !== 'wayland' && sessionProxy.Type !== 'x11')
+                continue;
+
+            if (sessionProxy.State !== 'active' && sessionProxy.State !== 'online')
+                continue;
+
+            return sessionProxy;
+        }
+
+        return null;
+    }
+
+    async _onSessionOpened(client, serviceName, sessionId) {
+        if (sessionId) {
+            const conflictingSession = await this._findConflictingSession(sessionId);
+            if (conflictingSession) {
+                this._showConflictingSessionDialog(serviceName, conflictingSession);
+                return;
+            }
+        }
+
         this._authPrompt.finish(() => this._startSession(serviceName));
     }
 
@@ -1208,6 +1362,9 @@ export const LoginDialog = GObject.registerClass({
         this._user = activatedItem.user;
 
         this._updateCancelButton();
+
+        if (this._conflictingSessionNotification)
+            this._conflictingSessionNotification.destroy();
 
         const batch = new Batch.ConcurrentBatch(this, [
             GdmUtil.cloneAndFadeOutActor(this._userSelectionBox),

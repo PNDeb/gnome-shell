@@ -262,11 +262,11 @@ setup_framebuffers (StThemeNodeTransition *transition,
   g_return_val_if_fail (width  > 0, FALSE);
   g_return_val_if_fail (height > 0, FALSE);
 
-  cogl_clear_object (&priv->old_texture);
-  priv->old_texture = COGL_TEXTURE (cogl_texture_2d_new_with_size (ctx, width, height));
+  g_clear_object (&priv->old_texture);
+  priv->old_texture = cogl_texture_2d_new_with_size (ctx, width, height);
 
-  cogl_clear_object (&priv->new_texture);
-  priv->new_texture = COGL_TEXTURE (cogl_texture_2d_new_with_size (ctx, width, height));
+  g_clear_object (&priv->new_texture);
+  priv->new_texture = cogl_texture_2d_new_with_size (ctx, width, height);
 
   if (priv->old_texture == NULL)
     return FALSE;
@@ -352,7 +352,7 @@ st_theme_node_transition_paint (StThemeNodeTransition *transition,
 {
   StThemeNodeTransitionPrivate *priv = transition->priv;
 
-  CoglColor constant;
+  CoglColor constant, pipeline_color;
   float tex_coords[] = {
     0.0, 0.0, 1.0, 1.0,
     0.0, 0.0, 1.0, 1.0,
@@ -381,9 +381,10 @@ st_theme_node_transition_paint (StThemeNodeTransition *transition,
                            clutter_timeline_get_progress (priv->timeline));
   cogl_pipeline_set_layer_combine_constant (priv->material, 1, &constant);
 
-  cogl_pipeline_set_color4ub (priv->material,
-                              paint_opacity, paint_opacity,
-                              paint_opacity, paint_opacity);
+  cogl_color_init_from_4f (&pipeline_color,
+                           paint_opacity / 255.0, paint_opacity / 255.0,
+                           paint_opacity / 255.0, paint_opacity / 255.0);
+  cogl_pipeline_set_color (priv->material, &pipeline_color);
 
   cogl_framebuffer_draw_multitextured_rectangle (framebuffer,
                                                  priv->material,
@@ -402,13 +403,13 @@ st_theme_node_transition_dispose (GObject *object)
   g_clear_object (&priv->old_theme_node);
   g_clear_object (&priv->new_theme_node);
 
-  cogl_clear_object (&priv->old_texture);
-  cogl_clear_object (&priv->new_texture);
+  g_clear_object (&priv->old_texture);
+  g_clear_object (&priv->new_texture);
 
   g_clear_object (&priv->old_offscreen);
   g_clear_object (&priv->new_offscreen);
 
-  cogl_clear_object (&priv->material);
+  g_clear_object (&priv->material);
 
   if (priv->timeline)
     {

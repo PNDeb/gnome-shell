@@ -4,6 +4,7 @@ import '../misc/dependencies.js';
 import {setConsoleLogDomain} from 'console';
 import * as Gettext from 'gettext';
 
+import Cairo from 'cairo';
 import Clutter from 'gi://Clutter';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
@@ -29,31 +30,11 @@ Gio._promisify(Gio.DBusProxy.prototype, 'init_async');
 Gio._promisify(Gio.DBusProxy.prototype, 'call_with_unix_fd_list');
 Gio._promisify(Gio.File.prototype, 'query_info_async');
 Gio._promisify(Polkit.Permission, 'new');
+Gio._promisify(Shell.App.prototype, 'activate_action');
 
 // We can't import shell JS modules yet, because they may have
 // variable initializations, etc, that depend on this file's
 // changes
-
-// "monkey patch" in some varargs ClutterContainer methods; we need
-// to do this per-container class since there is no representation
-// of interfaces in Javascript
-function _patchContainerClass(containerClass) {
-    // This one is a straightforward mapping of the C method
-    containerClass.prototype.child_set = function (actor, props) {
-        let meta = this.get_child_meta(actor);
-        for (let prop in props)
-            meta[prop] = props[prop];
-    };
-
-    // clutter_container_add() actually is a an add-many-actors
-    // method. We conveniently, but somewhat dubiously, take the
-    // this opportunity to make it do something more useful.
-    containerClass.prototype.add = function (actor, props) {
-        this.add_actor(actor);
-        if (props)
-            this.child_set(actor, props);
-    };
-}
 
 function _patchLayoutClass(layoutClass, styleProps) {
     if (styleProps) {
@@ -231,13 +212,14 @@ function _easeActorProperty(actor, propName, target, params) {
     }
 
     let pspec = actor.find_property(propName);
-    let transition = new Clutter.PropertyTransition(Object.assign({
+    let transition = new Clutter.PropertyTransition({
         property_name: propName,
         interval: new Clutter.Interval({value_type: pspec.value_type}),
         remove_on_complete: true,
         repeat_count: repeatCount,
         auto_reverse: autoReverse,
-    }, params));
+        ...params,
+    });
     actor.add_transition(propName, transition);
 
     transition.set_to(target);
@@ -275,9 +257,17 @@ GObject.Object.prototype.disconnect_object = function (...args) {
 
 SignalTracker.registerDestroyableType(Clutter.Actor);
 
-// Miscellaneous monkeypatching
-_patchContainerClass(St.BoxLayout);
+Cairo.Context.prototype.setSourceColor = function (color) {
+    const {red, green, blue, alpha} = color;
+    const rgb = [red, green, blue].map(v => v / 255.0);
 
+    if (alpha !== 0xff)
+        this.setSourceRGBA(...rgb, alpha / 255.0);
+    else
+        this.setSourceRGB(...rgb);
+};
+
+// Miscellaneous monkeypatching
 _patchLayoutClass(Clutter.GridLayout, {
     row_spacing: 'spacing-rows',
     column_spacing: 'spacing-columns',

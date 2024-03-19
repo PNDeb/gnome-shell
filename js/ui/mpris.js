@@ -1,7 +1,6 @@
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
 import Shell from 'gi://Shell';
-import St from 'gi://St';
 import * as Signals from '../misc/signals.js';
 
 import * as Main from './main.js';
@@ -22,17 +21,11 @@ const MPRIS_PLAYER_PREFIX = 'org.mpris.MediaPlayer2.';
 
 export const MediaMessage = GObject.registerClass(
 class MediaMessage extends MessageList.Message {
-    _init(player) {
-        super._init('', '');
+    constructor(player) {
+        super(player.source);
 
         this._player = player;
-
-        this._icon = new St.Icon({style_class: 'media-message-cover-icon'});
-        this.setIcon(this._icon);
-
-        // reclaim space used by unused elements
-        this._secondaryBin.hide();
-        this._closeButton.hide();
+        this.add_style_class_name('media-message');
 
         this._prevButton = this.addMediaControl('media-skip-backward-symbolic',
             () => {
@@ -65,20 +58,19 @@ class MediaMessage extends MessageList.Message {
     }
 
     _update() {
-        this.setTitle(this._player.trackTitle);
-        this.setBody(this._player.trackArtists.join(', '));
-
+        let icon;
         if (this._player.trackCoverUrl) {
-            let file = Gio.File.new_for_uri(this._player.trackCoverUrl);
-            this._icon.gicon = new Gio.FileIcon({file});
-            this._icon.remove_style_class_name('fallback');
-        } else if (this._player.app) {
-            this._icon.gicon = this._player.app.icon;
-            this._icon.add_style_class_name('fallback');
+            const file = Gio.File.new_for_uri(this._player.trackCoverUrl);
+            icon = new Gio.FileIcon({file});
         } else {
-            this._icon.icon_name = 'audio-x-generic-symbolic';
-            this._icon.add_style_class_name('fallback');
+            icon = new Gio.ThemedIcon({name: 'audio-x-generic-symbolic'});
         }
+
+        this.set({
+            title: this._player.trackTitle,
+            body: this._player.trackArtists.join(', '),
+            icon,
+        });
 
         let isPlaying = this._player.status === 'Playing';
         let iconName = isPlaying
@@ -107,6 +99,7 @@ export class MprisPlayer extends Signals.EventEmitter {
         this._trackTitle = '';
         this._trackCoverUrl = '';
         this._busName = busName;
+        this.source = new MessageList.Source();
     }
 
     get status() {
@@ -231,6 +224,11 @@ export class MprisPlayer extends Signals.EventEmitter {
         } else {
             this._app = null;
         }
+
+        this.source.set({
+            title: this._app?.get_name() ?? this._mprisProxy.Identity,
+            icon: this._app?.get_icon() ?? null,
+        });
 
         this.emit('changed');
 

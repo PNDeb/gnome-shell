@@ -14,12 +14,11 @@ import * as Mpris from './mpris.js';
 import * as PopupMenu from './popupMenu.js';
 import {ensureActorVisibleInScrollView} from '../misc/animationUtils.js';
 
-import {formatDateWithCFormatString, formatTimeSpan} from '../misc/dateUtils.js';
+import {formatDateWithCFormatString} from '../misc/dateUtils.js';
 import {loadInterfaceXML} from '../misc/fileUtils.js';
 
 const SHOW_WEEKDATE_KEY = 'show-weekdate';
-
-const MESSAGE_ICON_SIZE = -1; // pick up from CSS
+const MAX_NOTIFICATION_BUTTONS = 3;
 
 const NC_ = (context, str) => `${context}\u0004${str}`;
 
@@ -501,7 +500,7 @@ export const Calendar = GObject.registerClass({
             accessible_name: _('Previous month'),
             can_focus: true,
         });
-        this._topBox.add(this._backButton);
+        this._topBox.add_child(this._backButton);
         this._backButton.connect('clicked', this._onPrevMonthButtonClicked.bind(this));
 
         this._monthLabel = new St.Label({
@@ -519,7 +518,7 @@ export const Calendar = GObject.registerClass({
             accessible_name: _('Next month'),
             can_focus: true,
         });
-        this._topBox.add(this._forwardButton);
+        this._topBox.add_child(this._forwardButton);
         this._forwardButton.connect('clicked', this._onNextMonthButtonClicked.bind(this));
 
         // Add weekday labels...
@@ -535,7 +534,7 @@ export const Calendar = GObject.registerClass({
             // and we want, ideally, a single character for e.g. S M T W T F S
             let customDayAbbrev = _getCalendarDayAbbreviation(iter.getDay());
             let label = new St.Label({
-                style_class: 'calendar-day calendar-day-heading',
+                style_class: 'calendar-day-heading',
                 text: customDayAbbrev,
                 can_focus: true,
             });
@@ -768,13 +767,10 @@ export const Calendar = GObject.registerClass({
 
 export const NotificationMessage = GObject.registerClass(
 class NotificationMessage extends MessageList.Message {
-    _init(notification) {
-        super._init(notification.title, notification.bannerBodyText);
-        this.setUseBodyMarkup(notification.bannerBodyMarkup);
+    constructor(notification) {
+        super(notification.source);
 
         this.notification = notification;
-
-        this.setIcon(this._getIcon());
 
         this.connect('close', () => {
             this._closed = true;
@@ -782,30 +778,34 @@ class NotificationMessage extends MessageList.Message {
                 this.notification.destroy(MessageTray.NotificationDestroyedReason.DISMISSED);
         });
         notification.connectObject(
-            'updated', this._onUpdated.bind(this),
+            'action-added', (_, action) => this._addAction(action),
+            'action-removed', (_, action) => this._removeAction(action),
             'destroy', () => {
                 this.notification = null;
                 if (!this._closed)
                     this.close();
             }, this);
-    }
 
-    _getIcon() {
-        if (this.notification.gicon) {
-            return new St.Icon({
-                gicon: this.notification.gicon,
-                icon_size: MESSAGE_ICON_SIZE,
-            });
-        } else {
-            return this.notification.source.createIcon(MESSAGE_ICON_SIZE);
-        }
-    }
+        notification.bind_property('title',
+            this, 'title',
+            GObject.BindingFlags.SYNC_CREATE);
+        notification.bind_property('body',
+            this, 'body',
+            GObject.BindingFlags.SYNC_CREATE);
+        notification.bind_property('use-body-markup',
+            this, 'use-body-markup',
+            GObject.BindingFlags.SYNC_CREATE);
+        notification.bind_property('datetime',
+            this, 'datetime',
+            GObject.BindingFlags.SYNC_CREATE);
+        notification.bind_property('gicon',
+            this, 'icon',
+            GObject.BindingFlags.SYNC_CREATE);
 
-    _onUpdated(n, _clear) {
-        this.setIcon(this._getIcon());
-        this.setTitle(n.title);
-        this.setBody(n.bannerBodyText);
-        this.setUseBodyMarkup(n.bannerBodyMarkup);
+        this._actions = new Map();
+        this.notification.actions.forEach(action => {
+            this._addAction(action);
+        });
     }
 
     vfunc_clicked() {
@@ -815,22 +815,35 @@ class NotificationMessage extends MessageList.Message {
     canClose() {
         return true;
     }
-});
 
-const TimeLabel = GObject.registerClass(
-class NotificationTimeLabel extends St.Label {
-    _init(datetime) {
-        super._init({
-            style_class: 'event-time',
-            x_align: Clutter.ActorAlign.START,
-            y_align: Clutter.ActorAlign.END,
+    _addAction(action) {
+        if (!this._buttonBox) {
+            this._buttonBox = new St.BoxLayout({
+                x_expand: true,
+                style_class: 'notification-buttons-bin',
+            });
+            this.setActionArea(this._buttonBox);
+            global.focus_manager.add_group(this._buttonBox);
+        }
+
+        if (this._buttonBox.get_n_children() >= MAX_NOTIFICATION_BUTTONS)
+            return;
+
+        const button = new St.Button({
+            style_class: 'notification-button',
+            x_expand: true,
+            label: action.label,
         });
-        this._datetime = datetime;
+
+        button.connect('clicked', () => action.activate());
+
+        this._actions.set(action, button);
+        this._buttonBox.add_child(button);
     }
 
-    vfunc_map() {
-        this.text = formatTimeSpan(this._datetime);
-        super.vfunc_map();
+    _removeAction(action) {
+        this._actions.get(action)?.destroy();
+        this._actions.delete(action);
     }
 });
 
@@ -859,7 +872,6 @@ class NotificationSection extends MessageList.MessageListSection {
 
     _onNotificationAdded(source, notification) {
         let message = new NotificationMessage(notification);
-        message.setSecondaryActor(new TimeLabel(notification.datetime));
 
         let isUrgent = notification.urgency === MessageTray.Urgency.CRITICAL;
 
@@ -868,8 +880,8 @@ class NotificationSection extends MessageList.MessageListSection {
                 if (isUrgent)
                     this._nUrgent--;
             },
-            'updated', () => {
-                message.setSecondaryActor(new TimeLabel(notification.datetime));
+            'notify::datetime', () => {
+                // The datetime property changes whenever the notification is updated
                 this.moveMessage(message, isUrgent ? 0 : this._nUrgent, this.mapped);
             }, this);
 
@@ -903,10 +915,10 @@ class Placeholder extends St.BoxLayout {
         this._date = new Date();
 
         this._icon = new St.Icon({icon_name: 'no-notifications-symbolic'});
-        this.add_actor(this._icon);
+        this.add_child(this._icon);
 
         this._label = new St.Label({text: _('No Notifications')});
-        this.add_actor(this._label);
+        this.add_child(this._label);
     }
 });
 
@@ -941,22 +953,21 @@ class CalendarMessageList extends St.Widget {
         });
 
         this._placeholder = new Placeholder();
-        this.add_actor(this._placeholder);
+        this.add_child(this._placeholder);
 
         let box = new St.BoxLayout({
             vertical: true,
             x_expand: true,
             y_expand: true,
         });
-        this.add_actor(box);
+        this.add_child(box);
 
         this._scrollView = new St.ScrollView({
             style_class: 'vfade',
             overlay_scrollbars: true,
             x_expand: true, y_expand: true,
         });
-        this._scrollView.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
-        box.add_actor(this._scrollView);
+        box.add_child(this._scrollView);
 
         let hbox = new St.BoxLayout({style_class: 'message-list-controls'});
         box.add_child(hbox);
@@ -987,11 +998,12 @@ class CalendarMessageList extends St.Widget {
             can_focus: true,
             x_expand: true,
             x_align: Clutter.ActorAlign.END,
+            accessible_name: C_('action', 'Clear all notifications'),
         });
         this._clearButton.connect('clicked', () => {
             this._sectionList.get_children().forEach(s => s.clear());
         });
-        hbox.add_actor(this._clearButton);
+        hbox.add_child(this._clearButton);
 
         this._placeholder.bind_property('visible',
             this._clearButton, 'visible',
@@ -1002,13 +1014,12 @@ class CalendarMessageList extends St.Widget {
             vertical: true,
             x_expand: true,
             y_expand: true,
-            y_align: Clutter.ActorAlign.START,
         });
         this._sectionList.connectObject(
-            'actor-added', this._sync.bind(this),
-            'actor-removed', this._sync.bind(this),
+            'child-added', this._sync.bind(this),
+            'child-removed', this._sync.bind(this),
             this);
-        this._scrollView.add_actor(this._sectionList);
+        this._scrollView.child = this._sectionList;
 
         this._mediaSection = new Mpris.MediaSection();
         this._addSection(this._mediaSection);
@@ -1024,11 +1035,11 @@ class CalendarMessageList extends St.Widget {
             'notify::visible', this._sync.bind(this),
             'notify::empty', this._sync.bind(this),
             'notify::can-clear', this._sync.bind(this),
-            'destroy', () => this._sectionList.remove_actor(section),
+            'destroy', () => this._sectionList.remove_child(section),
             'message-focused', (_s, messageActor) => {
                 ensureActorVisibleInScrollView(this._scrollView, messageActor);
             }, this);
-        this._sectionList.add_actor(section);
+        this._sectionList.add_child(section);
     }
 
     _sync() {

@@ -31,6 +31,8 @@ class Avatar extends St.Bin {
             reactive: params.reactive,
             width: params.iconSize * themeContext.scaleFactor,
             height: params.iconSize * themeContext.scaleFactor,
+            x_expand: false,
+            y_expand: false,
         });
 
         this._iconSize = params.iconSize;
@@ -90,6 +92,8 @@ class Avatar extends St.Bin {
             this.child = new St.Icon({
                 icon_name: 'avatar-default-symbolic',
                 icon_size: this._iconSize,
+                x_expand: true,
+                y_expand: true,
             });
         }
     }

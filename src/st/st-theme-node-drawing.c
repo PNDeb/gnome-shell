@@ -180,11 +180,11 @@ create_corner_material (StCornerSpec *corner)
 
   cairo_surface_destroy (surface);
 
-  texture = COGL_TEXTURE (cogl_texture_2d_new_from_data (ctx, size, size,
-                                                         CLUTTER_CAIRO_FORMAT_ARGB32,
-                                                         rowstride,
-                                                         data,
-                                                         &error));
+  texture = cogl_texture_2d_new_from_data (ctx, size, size,
+                                           COGL_PIXEL_FORMAT_CAIRO_ARGB32_COMPAT,
+                                           rowstride,
+                                           data,
+                                           &error);
 
   if (error)
     {
@@ -427,7 +427,7 @@ st_theme_node_lookup_corner (StThemeNode    *node,
   if (texture)
     {
       material = _st_create_texture_pipeline (texture);
-      cogl_object_unref (texture);
+      g_object_unref (texture);
     }
 
   g_free (key);
@@ -1341,13 +1341,13 @@ st_theme_node_prerender_background (StThemeNode *node,
   if (interior_path != NULL)
     cairo_path_destroy (interior_path);
 
-  texture = COGL_TEXTURE (cogl_texture_2d_new_from_data (ctx,
-                                                         texture_width,
-                                                         texture_height,
-                                                         CLUTTER_CAIRO_FORMAT_ARGB32,
-                                                         rowstride,
-                                                         data,
-                                                         &error));
+  texture = cogl_texture_2d_new_from_data (ctx,
+                                           texture_width,
+                                           texture_height,
+                                           COGL_PIXEL_FORMAT_CAIRO_ARGB32_COMPAT,
+                                           rowstride,
+                                           data,
+                                           &error);
 
   if (error)
     {
@@ -1371,8 +1371,8 @@ static void st_theme_node_paint_borders (StThemeNodePaintState *state,
 void
 st_theme_node_invalidate_border_image (StThemeNode *node)
 {
-  cogl_clear_object (&node->border_slices_texture);
-  cogl_clear_object (&node->border_slices_pipeline);
+  g_clear_object (&node->border_slices_texture);
+  g_clear_object (&node->border_slices_pipeline);
 }
 
 static gboolean
@@ -1407,9 +1407,9 @@ st_theme_node_load_border_image (StThemeNode *node,
 void
 st_theme_node_invalidate_background_image (StThemeNode *node)
 {
-  cogl_clear_object (&node->background_texture);
-  cogl_clear_object (&node->background_pipeline);
-  cogl_clear_object (&node->background_shadow_pipeline);
+  g_clear_object (&node->background_texture);
+  g_clear_object (&node->background_pipeline);
+  g_clear_object (&node->background_shadow_pipeline);
 }
 
 static gboolean
@@ -1624,16 +1624,16 @@ st_theme_node_update_resources (StThemeNodePaintState *state,
 
   /* Free handles we can't reuse */
   had_prerendered_texture = (state->prerendered_texture != NULL);
-  cogl_clear_object (&state->prerendered_texture);
+  g_clear_object (&state->prerendered_texture);
 
   if (state->prerendered_pipeline != NULL)
     {
-      cogl_clear_object (&state->prerendered_pipeline);
+      g_clear_object (&state->prerendered_pipeline);
 
       if (node->border_slices_texture == NULL &&
           state->box_shadow_pipeline != NULL)
         {
-          cogl_clear_object (&state->box_shadow_pipeline);
+          g_clear_object (&state->box_shadow_pipeline);
           had_box_shadow = TRUE;
         }
     }
@@ -1673,8 +1673,12 @@ paint_material_with_opacity (CoglPipeline    *material,
                              ClutterActorBox *coords,
                              guint8           paint_opacity)
 {
-  cogl_pipeline_set_color4ub (material,
-                              paint_opacity, paint_opacity, paint_opacity, paint_opacity);
+  CoglColor color;
+
+  cogl_color_init_from_4f (&color,
+                           paint_opacity / 255.0, paint_opacity / 255.0,
+                           paint_opacity / 255.0, paint_opacity / 255.0);
+  cogl_pipeline_set_color (material, &color);
 
   if (coords)
     cogl_framebuffer_draw_textured_rectangle (framebuffer, material,
@@ -1721,6 +1725,7 @@ st_theme_node_paint_borders (StThemeNodePaintState *state,
   ClutterColor border_color;
   guint8 alpha;
   gboolean corners_are_transparent;
+  CoglColor pipeline_color;
 
   width = box->x2 - box->x1;
   height = box->y2 - box->y1;
@@ -1762,11 +1767,12 @@ st_theme_node_paint_borders (StThemeNodePaintState *state,
       if (alpha > 0)
         {
           st_theme_node_ensure_color_pipeline (node);
-          cogl_pipeline_set_color4ub (node->color_pipeline,
-                                      effective_border.red * alpha / 255,
-                                      effective_border.green * alpha / 255,
-                                      effective_border.blue * alpha / 255,
-                                      alpha);
+          cogl_color_init_from_4f (&pipeline_color,
+                                   effective_border.red / 255.0 * alpha / 255.0,
+                                   effective_border.green / 255.0 * alpha / 255.0,
+                                   effective_border.blue / 255.0 * alpha / 255.0,
+                                   alpha / 255.0);
+          cogl_pipeline_set_color (node->color_pipeline, &pipeline_color);
 
           /* NORTH */
           skip_corner_1 = border_radius[ST_CORNER_TOPLEFT] > 0;
@@ -1819,6 +1825,9 @@ st_theme_node_paint_borders (StThemeNodePaintState *state,
                             node->background_color.alpha == 0 &&
                             node->border_color[0].alpha == 0;
 
+  cogl_color_init_from_4f (&pipeline_color,
+                           paint_opacity / 255.0, paint_opacity / 255.0,
+                           paint_opacity / 255.0, paint_opacity / 255.0);
   /* corners */
   if (max_border_radius > 0 && paint_opacity > 0 && !corners_are_transparent)
     {
@@ -1827,9 +1836,7 @@ st_theme_node_paint_borders (StThemeNodePaintState *state,
           if (state->corner_material[corner_id] == NULL)
             continue;
 
-          cogl_pipeline_set_color4ub (state->corner_material[corner_id],
-                                      paint_opacity, paint_opacity,
-                                      paint_opacity, paint_opacity);
+          cogl_pipeline_set_color (state->corner_material[corner_id], &pipeline_color);
 
           switch (corner_id)
             {
@@ -1875,12 +1882,12 @@ st_theme_node_paint_borders (StThemeNodePaintState *state,
   if (alpha > 0)
     {
       st_theme_node_ensure_color_pipeline (node);
-      cogl_pipeline_set_color4ub (node->color_pipeline,
-                                  node->background_color.red * alpha / 255,
-                                  node->background_color.green * alpha / 255,
-                                  node->background_color.blue * alpha / 255,
-                                  alpha);
-
+      cogl_color_init_from_4f (&pipeline_color,
+                               node->background_color.red / 255.0 * alpha / 255.0,
+                               node->background_color.green / 255.0 * alpha / 255.0,
+                               node->background_color.blue / 255.0 * alpha / 255.0,
+                               alpha / 255.0);
+      cogl_pipeline_set_color (node->color_pipeline, &pipeline_color);
       /* We add padding to each corner, so that all corners end up as if they
        * had a border-radius of max_border_radius, which allows us to treat
        * corners as uniform further on.
@@ -2113,11 +2120,11 @@ st_theme_node_paint_sliced_shadow (StThemeNodePaintState *state,
   right += xoffset;
 
   /* Setup pipeline */
-  cogl_color_init_from_4ub (&color,
-                            box_shadow_spec->color.red   * paint_opacity / 255,
-                            box_shadow_spec->color.green * paint_opacity / 255,
-                            box_shadow_spec->color.blue  * paint_opacity / 255,
-                            box_shadow_spec->color.alpha * paint_opacity / 255);
+  cogl_color_init_from_4f (&color,
+                           box_shadow_spec->color.red / 255.0   * paint_opacity / 255.0,
+                           box_shadow_spec->color.green / 255.0 * paint_opacity / 255.0,
+                           box_shadow_spec->color.blue / 255.0 * paint_opacity / 255.0,
+                           box_shadow_spec->color.alpha / 255.0 * paint_opacity / 255.0);
   cogl_color_premultiply (&color);
 
   cogl_pipeline_set_layer_combine_constant (state->box_shadow_pipeline, 0, &color);
@@ -2264,7 +2271,8 @@ st_theme_node_paint_sliced_shadow (StThemeNodePaintState *state,
                                    xend, yoffset, xend + shadow_width, yoffset + shadow_height);
 
   st_theme_node_ensure_color_pipeline (node);
-  cogl_pipeline_set_color4ub (node->color_pipeline, 0xff, 0x0, 0x0, 0xff);
+  cogl_color_init_from_4f (&color, 1.0, 0.0, 0.0, 1.0);
+  cogl_pipeline_set_color (node->color_pipeline, &color);
 
   cogl_framebuffer_draw_rectangle (framebuffer, node->color_pipeline,
                                    xoffset, top, xend, top + 1);
@@ -2317,7 +2325,7 @@ st_theme_node_prerender_shadow (StThemeNodePaintState *state)
   /* Render offscreen */
   fb_width = ceilf (state->box_shadow_width * state->resource_scale);
   fb_height = ceilf (state->box_shadow_height * state->resource_scale);
-  buffer = COGL_TEXTURE (cogl_texture_2d_new_with_size (ctx, fb_width, fb_height));
+  buffer = cogl_texture_2d_new_with_size (ctx, fb_width, fb_height);
   if (buffer == NULL)
     return;
 
@@ -2343,7 +2351,7 @@ st_theme_node_prerender_shadow (StThemeNodePaintState *state)
 
   g_clear_error (&error);
   g_clear_object (&offscreen);
-  cogl_clear_object (&buffer);
+  g_clear_object (&buffer);
 }
 
 static void
@@ -2392,6 +2400,7 @@ st_theme_node_paint_sliced_border_image (StThemeNode           *node,
   float img_width, img_height;
   StBorderImage *border_image;
   CoglPipeline *pipeline;
+  CoglColor color;
 
   border_image = st_theme_node_get_border_image (node);
   g_assert (border_image != NULL);
@@ -2416,8 +2425,10 @@ st_theme_node_paint_sliced_border_image (StThemeNode           *node,
     ey = border_bottom;          /* FIXME ? */
 
   pipeline = node->border_slices_pipeline;
-  cogl_pipeline_set_color4ub (pipeline,
-                              paint_opacity, paint_opacity, paint_opacity, paint_opacity);
+  cogl_color_init_from_4f (&color,
+                           paint_opacity / 255.0, paint_opacity / 255.0,
+                           paint_opacity / 255.0, paint_opacity / 255.0);
+  cogl_pipeline_set_color (pipeline, &color);
 
   {
     float rectangles[] =
@@ -2483,6 +2494,7 @@ st_theme_node_paint_outline (StThemeNode           *node,
   int outline_width;
   float rects[16];
   ClutterColor outline_color, effective_outline;
+  CoglColor pipeline_color;
   guint8 alpha;
 
   width = box->x2 - box->x1;
@@ -2498,11 +2510,12 @@ st_theme_node_paint_outline (StThemeNode           *node,
   alpha = paint_opacity * outline_color.alpha / 255;
 
   st_theme_node_ensure_color_pipeline (node);
-  cogl_pipeline_set_color4ub (node->color_pipeline,
-                              effective_outline.red * alpha / 255,
-                              effective_outline.green * alpha / 255,
-                              effective_outline.blue * alpha / 255,
-                              alpha);
+  cogl_color_init_from_4f (&pipeline_color,
+                           effective_outline.red / 255.0 * alpha / 255.0,
+                           effective_outline.green / 255.0 * alpha / 255.0,
+                           effective_outline.blue / 255.0 * alpha / 255.0,
+                           alpha / 255.0);
+  cogl_pipeline_set_color (node->color_pipeline, &pipeline_color);
 
   /* The outline is drawn just outside the border, which means just
    * outside the allocation box. This means that in some situations
@@ -2754,12 +2767,12 @@ st_theme_node_paint_state_node_free_internal (StThemeNodePaintState *state,
 {
   int corner_id;
 
-  cogl_clear_object (&state->prerendered_texture);
-  cogl_clear_object (&state->prerendered_pipeline);
-  cogl_clear_object (&state->box_shadow_pipeline);
+  g_clear_object (&state->prerendered_texture);
+  g_clear_object (&state->prerendered_pipeline);
+  g_clear_object (&state->box_shadow_pipeline);
 
   for (corner_id = 0; corner_id < 4; corner_id++)
-    cogl_clear_object (&state->corner_material[corner_id]);
+    g_clear_object (&state->corner_material[corner_id]);
 
   if (unref_node)
     st_theme_node_paint_state_set_node (state, NULL);
@@ -2831,14 +2844,14 @@ st_theme_node_paint_state_copy (StThemeNodePaintState *state,
   state->box_shadow_height = other->box_shadow_height;
 
   if (other->box_shadow_pipeline)
-    state->box_shadow_pipeline = cogl_object_ref (other->box_shadow_pipeline);
+    state->box_shadow_pipeline = g_object_ref (other->box_shadow_pipeline);
   if (other->prerendered_texture)
-    state->prerendered_texture = cogl_object_ref (other->prerendered_texture);
+    state->prerendered_texture = g_object_ref (other->prerendered_texture);
   if (other->prerendered_pipeline)
-    state->prerendered_pipeline = cogl_object_ref (other->prerendered_pipeline);
+    state->prerendered_pipeline = g_object_ref (other->prerendered_pipeline);
   for (corner_id = 0; corner_id < 4; corner_id++)
     if (other->corner_material[corner_id])
-      state->corner_material[corner_id] = cogl_object_ref (other->corner_material[corner_id]);
+      state->corner_material[corner_id] = g_object_ref (other->corner_material[corner_id]);
 }
 
 void

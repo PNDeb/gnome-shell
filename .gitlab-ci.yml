@@ -10,6 +10,7 @@ stages:
   - build
   - test
   - analyze
+  - docs
   - deploy
 
 default:
@@ -26,7 +27,7 @@ default:
       - 'api_failure'
 
 variables:
-  MUTTER_CI_IMAGE: registry.gitlab.gnome.org/gnome/mutter/fedora/39:x86_64-2023-08-31.0
+  MUTTER_CI_IMAGE: registry.gitlab.gnome.org/gnome/mutter/fedora/40:x86_64-2024-02-23.0
   FDO_UPSTREAM_REPO: GNOME/gnome-shell
   BUNDLE: "extensions-git.flatpak"
   LINT_LOG: "eslint-report.xml"
@@ -34,6 +35,8 @@ variables:
 
 workflow:
   rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
     - if: '$CI_MERGE_REQUEST_IID'
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH'
@@ -48,13 +51,14 @@ workflow:
 
 .gnome-shell.fedora:
   variables:
-    FDO_DISTRIBUTION_VERSION: 39
-    FDO_DISTRIBUTION_TAG: '2023-08-15.1'
+    FDO_DISTRIBUTION_VERSION: 40
+    FDO_DISTRIBUTION_TAG: '2024-02-23.0'
     FDO_DISTRIBUTION_PACKAGES:
       gjs
       nodejs
       npm
       meson
+      git
       'pkgconfig(gobject-introspection-1.0)'
       'pkgconfig(gio-2.0)'
       'pkgconfig(gio-unix-2.0)'
@@ -63,9 +67,6 @@ workflow:
     FDO_DISTRIBUTION_EXEC: |
       # For static analysis with eslint
       npm install -g eslint@^8.0.0 eslint-plugin-jsdoc@^46.0.0 &&
-
-      dnf group install -y 'Development Tools' \
-                 'C Development Tools and Libraries' &&
 
       ./.gitlab-ci/install-meson-project.sh \
         https://gitlab.gnome.org/fmuellner/gjs-ci-tools.git \
@@ -148,6 +149,21 @@ eslint:
       junit: ${LINT_LOG}
     when: always
 
+eslint-doc:
+  extends:
+    - .fdo.distribution-image@fedora
+    - .gnome-shell.fedora
+  stage: review
+  script:
+    - export NODE_PATH=$(npm root -g)
+    - ./.gitlab-ci/eslint-coding-style.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - HACKING.md
+        - .eslintrc.yml
+        - lint/*
+
 potfile_c_check:
   extends:
     - .fdo.distribution-image@fedora
@@ -177,7 +193,7 @@ build:
     - meson mutter mutter/build --prefix=/usr
     - sudo meson install -C mutter/build
   script:
-    - meson setup . build -Dbuildtype=debugoptimized -Dman=false --werror --fatal-meson-warnings
+    - meson setup . build -Dbuildtype=debugoptimized -Dman=false -Dgtk_doc=true --werror --fatal-meson-warnings
     - meson compile -C build
     - sudo meson install -C build
   artifacts:
@@ -274,6 +290,27 @@ dist-tarball:
       - build/meson-dist/$CI_PROJECT_NAME-$CI_COMMIT_TAG.tar.xz
   rules:
     - if: '$CI_COMMIT_TAG'
+
+reference:
+  stage: docs
+  needs: ["build"]
+  script:
+    - mkdir -p reference/
+    - mv build/docs/reference/{shell/shell,st/st} reference/
+  artifacts:
+    paths:
+      - reference
+
+pages:
+  stage: deploy
+  needs: ['reference']
+  script:
+    - mv reference/ public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PROJECT_NAMESPACE == "GNOME"'
 
 build-toolbox:
   image: quay.io/freedesktop.org/ci-templates:container-build-base-2021-07-29.0

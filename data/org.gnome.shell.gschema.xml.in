@@ -40,6 +40,17 @@
         the “enabled-extension” setting.
       </description>
     </key>
+    <key name="allow-extension-installation" type="b">
+      <default>true</default>
+      <summary>Allow extension installation</summary>
+      <description>
+        Allow users to install extensions in their home folder. If disabled,
+        the InstallRemoteExtension D-Bus method will fail, and extensions
+        are only loaded from system directories on startup.
+        It does not affect extensions that are already loaded, so a change
+        only takes full effect on the next login.
+      </description>
+    </key>
     <key name="disable-extension-version-validation" type="b">
       <default>false</default>
       <summary>Disables the validation of extension version compatibility</summary>
@@ -50,7 +61,7 @@
       </description>
     </key>
     <key name="favorite-apps" type="as">
-      <default>[ 'org.gnome.Epiphany.desktop', 'org.gnome.Calendar.desktop', 'org.gnome.Music.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Software.desktop' ]</default>
+      <default>[ 'org.gnome.Epiphany.desktop', 'org.gnome.Calendar.desktop', 'org.gnome.Music.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Software.desktop', 'org.gnome.TextEditor.desktop']</default>
       <summary>List of desktop file IDs for favorite applications</summary>
       <description>
         The applications corresponding to these identifiers
@@ -63,15 +74,17 @@
     </key>
     <key name="looking-glass-history" type="as">
       <default>[]</default>
-      <!-- Translators: looking glass is a debugger and inspector tool, see https://wiki.gnome.org/Projects/GnomeShell/LookingGlass -->
+      <!-- Translators: looking glass is a debugger and inspector tool, see https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/main/docs/looking-glass.md -->
       <summary>History for the looking glass dialog</summary>
     </key>
     <key name="always-show-log-out" type="b">
       <default>false</default>
-      <summary>Always show the “Log out” menu item in the user menu.</summary>
+      <summary>Always show the “Log Out” action in the system menu</summary>
       <description>
-        This key overrides the automatic hiding of the “Log out”
-        menu item in single-user, single-session situations.
+        This key overrides the automatic hiding of the “Log out” action in the
+        system menu for logged-in situations where there is a single, local,
+        non-system user and only a single available session type (e.g. GNOME on
+        Wayland).
       </description>
     </key>
     <key name="remember-mount-password" type="b">
@@ -118,7 +131,7 @@
           'org.gnome.gedit.desktop': <{'position': <9>}>,
           'simple-scan.desktop': <{'position': <10>}>,
           'org.gnome.Settings.desktop': <{'position': <11>}>,
-          'gnome-system-monitor.desktop': <{'position': <12>}>,
+          'org.gnome.SystemMonitor.desktop': <{'position': <12>}>,
           'org.gnome.Boxes.desktop': <{'position': <13>}>,
           'org.gnome.Terminal.desktop': <{'position': <14>}>,
           'Utilities': <{'position': <15>}>,
@@ -232,6 +245,42 @@
     <key name="switch-to-application-9" type="as">
       <default>["&lt;Super&gt;9"]</default>
       <summary>Switch to application 9</summary>
+    </key>
+    <key name="open-new-window-application-1" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;1"]</default>
+      <summary>Open a new instance of application 1</summary>
+    </key>
+    <key name="open-new-window-application-2" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;2"]</default>
+      <summary>Open a new instance of application 2</summary>
+    </key>
+    <key name="open-new-window-application-3" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;3"]</default>
+      <summary>Open a new instance of application 3</summary>
+    </key>
+    <key name="open-new-window-application-4" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;4"]</default>
+      <summary>Open a new instance of application 4</summary>
+    </key>
+    <key name="open-new-window-application-5" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;5"]</default>
+      <summary>Open a new instance of application 5</summary>
+    </key>
+    <key name="open-new-window-application-6" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;6"]</default>
+      <summary>Open a new instance of application 6</summary>
+    </key>
+    <key name="open-new-window-application-7" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;7"]</default>
+      <summary>Open a new instance of application 7</summary>
+    </key>
+    <key name="open-new-window-application-8" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;8"]</default>
+      <summary>Open a new instance of application 8</summary>
+    </key>
+    <key name="open-new-window-application-9" type="as">
+      <default>["&lt;Super&gt;&lt;Control&gt;9"]</default>
+      <summary>Open a new instance of application 9</summary>
     </key>
     <key name="show-screenshot-ui" type="as">
       <default>["Print"]</default>

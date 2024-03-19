@@ -15,7 +15,7 @@ export class WindowMenu extends PopupMenu.PopupMenu {
 
         this.actor.add_style_class_name('window-menu');
 
-        Main.layoutManager.uiGroup.add_actor(this.actor);
+        Main.layoutManager.uiGroup.add_child(this.actor);
         this.actor.hide();
 
         this._buildMenu(window);
@@ -71,7 +71,8 @@ export class WindowMenu extends PopupMenu.PopupMenu {
             window.begin_grab_op(
                 Meta.GrabOp.KEYBOARD_MOVING,
                 pointer, null,
-                event.get_time());
+                event.get_time(),
+                null);
         });
         if (!window.allows_move())
             item.setSensitive(false);
@@ -90,7 +91,8 @@ export class WindowMenu extends PopupMenu.PopupMenu {
             window.begin_grab_op(
                 Meta.GrabOp.KEYBOARD_RESIZING_UNKNOWN,
                 pointer, null,
-                event.get_time());
+                event.get_time(),
+                null);
         });
         if (!window.allows_resize())
             item.setSensitive(false);
@@ -227,7 +229,7 @@ export class WindowMenuManager {
         this._sourceActor.connect('button-press-event', () => {
             this._manager.activeMenu.toggle();
         });
-        Main.uiGroup.add_actor(this._sourceActor);
+        Main.uiGroup.add_child(this._sourceActor);
     }
 
     showWindowMenuForWindow(window, type, rect) {

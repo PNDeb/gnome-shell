@@ -1,12 +1,8 @@
 // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
 
-import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
-import GObject from 'gi://GObject';
-import St from 'gi://St';
 
 import * as GnomeSession from '../../misc/gnomeSession.js';
-import * as Main from '../main.js';
 import * as MessageTray from '../messageTray.js';
 
 Gio._promisify(Gio.Mount.prototype, 'guess_content_type');
@@ -165,7 +161,7 @@ class AutorunManager {
 class AutorunDispatcher {
     constructor(manager) {
         this._manager = manager;
-        this._sources = [];
+        this._notifications = new Map();
         this._settings = new Gio.Settings({schema_id: SETTINGS_SCHEMA});
     }
 
@@ -185,26 +181,29 @@ class AutorunDispatcher {
         return AutorunSetting.ASK;
     }
 
-    _getSourceForMount(mount) {
-        let filtered = this._sources.filter(source => source.mount === mount);
-
-        // we always make sure not to add two sources for the same
-        // mount in addMount(), so it's safe to assume filtered.length
-        // is always either 1 or 0.
-        if (filtered.length === 1)
-            return filtered[0];
-
-        return null;
-    }
-
-    _addSource(mount, apps) {
-        // if we already have a source showing for this
-        // mount, return
-        if (this._getSourceForMount(mount))
+    _addNotification(mount, apps) {
+        // Only show a new notification if there isn't already an existing one
+        if (this._notifications.has(mount))
             return;
 
-        // add a new source
-        this._sources.push(new AutorunSource(this._manager, mount, apps));
+        const source = MessageTray.getSystemSource();
+        const notification = new MessageTray.Notification({
+            source,
+            title: mount.get_name(),
+        });
+        notification.connect('activate', () => {
+            const app = Gio.app_info_get_default_for_type('inode/directory', false);
+            startAppForMount(app, mount);
+        });
+        apps.forEach(app => {
+            notification.addAction(
+                _('Open with %s').format(app.get_name()),
+                () => startAppForMount(app, mount)
+            );
+        });
+        notification.connect('destroy', () => this._notifications.delete(mount));
+        this._notifications.set(mount, notification);
+        source.addNotification(notification);
     }
 
     addMount(mount, apps, contentTypes) {
@@ -241,108 +240,12 @@ class AutorunDispatcher {
         // we fallback here also in case the settings did not specify 'ask',
         // but we failed launching the default app or the default file manager
         if (!success)
-            this._addSource(mount, apps);
+            this._addNotification(mount, apps);
     }
 
     removeMount(mount) {
-        let source = this._getSourceForMount(mount);
-
-        // if we aren't tracking this mount, don't do anything
-        if (!source)
-            return;
-
-        // destroy the notification source
-        source.destroy();
+        this._notifications.get(mount)?.destroy();
     }
 }
-
-const AutorunSource = GObject.registerClass(
-class AutorunSource extends MessageTray.Source {
-    _init(manager, mount, apps) {
-        super._init(mount.get_name());
-
-        this._manager = manager;
-        this.mount = mount;
-        this.apps = apps;
-
-        this._notification = new AutorunNotification(this._manager, this);
-
-        // add ourselves as a source, and popup the notification
-        Main.messageTray.add(this);
-        this.showNotification(this._notification);
-    }
-
-    getIcon() {
-        return this.mount.get_icon();
-    }
-
-    _createPolicy() {
-        return new MessageTray.NotificationApplicationPolicy('org.gnome.Nautilus');
-    }
-});
-
-const AutorunNotification = GObject.registerClass(
-class AutorunNotification extends MessageTray.Notification {
-    _init(manager, source) {
-        super._init(source, source.title);
-
-        this._manager = manager;
-        this._mount = source.mount;
-    }
-
-    createBanner() {
-        let banner = new MessageTray.NotificationBanner(this);
-
-        this.source.apps.forEach(app => {
-            let actor = this._buttonForApp(app);
-
-            if (actor)
-                banner.addButton(actor);
-        });
-
-        return banner;
-    }
-
-    _buttonForApp(app) {
-        let box = new St.BoxLayout({
-            x_expand: true,
-            x_align: Clutter.ActorAlign.START,
-        });
-        const icon = new St.Icon({
-            gicon: app.get_icon(),
-            style_class: 'hotplug-notification-item-icon',
-        });
-        box.add(icon);
-
-        let label = new St.Bin({
-            child: new St.Label({
-                text: _('Open with %s').format(app.get_name()),
-                y_align: Clutter.ActorAlign.CENTER,
-            }),
-        });
-        box.add(label);
-
-        const button = new St.Button({
-            child: box,
-            x_expand: true,
-            button_mask: St.ButtonMask.ONE,
-            style_class: 'hotplug-notification-item button',
-        });
-
-        button.connect('clicked', () => {
-            startAppForMount(app, this._mount);
-            this.destroy();
-        });
-
-        return button;
-    }
-
-    activate() {
-        super.activate();
-
-        let app = Gio.app_info_get_default_for_type('inode/directory', false);
-        startAppForMount(app, this._mount);
-    }
-});
 
 export {AutorunManager as Component};

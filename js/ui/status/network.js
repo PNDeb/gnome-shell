@@ -7,6 +7,7 @@ import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
 import NM from 'gi://NM';
 import Polkit from 'gi://Polkit';
+import Shell from 'gi://Shell';
 import St from 'gi://St';
 
 import * as Main from '../main.js';
@@ -65,25 +66,13 @@ function ssidToLabel(ssid) {
 function launchSettingsPanel(panel, ...args) {
     const param = new GLib.Variant('(sav)',
         [panel, args.map(s => new GLib.Variant('s', s))]);
-    const platformData = {
-        'desktop-startup-id': new GLib.Variant('s',
-            `_TIME${global.get_current_time()}`),
-    };
-    try {
-        Gio.DBus.session.call(
-            'org.gnome.Settings',
-            '/org/gnome/Settings',
-            'org.freedesktop.Application',
-            'ActivateAction',
-            new GLib.Variant('(sava{sv})',
-                ['launch-panel', [param], platformData]),
-            null,
-            Gio.DBusCallFlags.NONE,
-            -1,
-            null);
-    } catch (e) {
-        log(`Failed to launch Settings panel: ${e.message}`);
-    }
+
+    const app = Shell.AppSystem.get_default()
+        .lookup_app('org.gnome.Settings.desktop');
+
+    app.activate_action('launch-panel', param, 0, -1, null).catch(error => {
+        log(`Failed to launch Settings panel: ${error.message}`);
+    });
 }
 
 class ItemSorter {
@@ -379,7 +368,7 @@ class NMConnectionItem extends NMMenuItem {
             this.accessible_name = this.name;
             this.accessible_role = Atk.Role.CHECK_MENU_ITEM;
             this.setOrnament(this.is_active
-                ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NONE);
+                ? PopupMenu.Ornament.DOT : PopupMenu.Ornament.NO_DOT);
         } else {
             this.accessible_name = this._getAccessibleName();
             this._subtitle.text = this._getSubtitleLabel();
@@ -1014,7 +1003,7 @@ class NMWirelessNetworkItem extends PopupMenu.PopupBaseMenuItem {
             style_class: 'wireless-secure-icon',
             y_align: Clutter.ActorAlign.END,
         });
-        icons.add_actor(this._secureIcon);
+        icons.add_child(this._secureIcon);
 
         this._label = new St.Label();
         this.add_child(this._label);
@@ -1023,7 +1012,7 @@ class NMWirelessNetworkItem extends PopupMenu.PopupBaseMenuItem {
             style_class: 'popup-menu-icon',
             icon_name: 'object-select-symbolic',
         });
-        this.add(this._selectedIcon);
+        this.add_child(this._selectedIcon);
 
         this._network.bind_property('icon-name',
             this._signalIcon, 'icon-name',
@@ -1608,6 +1597,10 @@ class NMVpnToggle extends NMToggle {
             'activation-failed', () => this.emit('activation-failed'),
             this);
         this._addItem(connection, item);
+
+        // FIXME: NM is emitting "connection-added" after "notify::active-connections",
+        // so we need to sync connections here once again.
+        this._syncActiveConnections();
     }
 
     _removeConnection(connection) {
@@ -2036,21 +2029,19 @@ class Indicator extends SystemIndicator {
     _onActivationFailed() {
         this._notification?.destroy();
 
-        const source = new MessageTray.Source(
-            _('Network Manager'), 'network-error-symbolic');
-        source.policy =
-            new MessageTray.NotificationApplicationPolicy('gnome-network-panel');
-
-        this._notification = new MessageTray.Notification(source,
-            _('Connection failed'),
-            _('Activation of network connection failed'));
-        this._notification.setUrgency(MessageTray.Urgency.HIGH);
-        this._notification.setTransient(true);
+        const source = MessageTray.getSystemSource();
+        this._notification = new MessageTray.Notification({
+            source,
+            title: _('Connection failed'),
+            body: _('Activation of network connection failed'),
+            iconName: 'network-error-symbolic',
+            urgency: MessageTray.Urgency.HIGH,
+            isTransient: true,
+        });
         this._notification.connect('destroy',
             () => (this._notification = null));
 
-        Main.messageTray.add(source);
-        source.showNotification(this._notification);
+        source.addNotification(this._notification);
     }
 
     _syncMainConnection() {

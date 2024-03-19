@@ -236,7 +236,6 @@ class Indicator extends SystemIndicator {
         Main.sessionMode.connect('updated', this._sync.bind(this));
         this._sync();
 
-        this._source = null;
         this._perm = null;
         this._createPermission();
     }
@@ -254,35 +253,26 @@ class Indicator extends SystemIndicator {
         this._client.close();
     }
 
-    _ensureSource() {
-        if (!this._source) {
-            this._source = new MessageTray.Source(_('Thunderbolt'),
-                'thunderbolt-symbolic');
-            this._source.connect('destroy', () => (this._source = null));
-
-            Main.messageTray.add(this._source);
-        }
-
-        return this._source;
-    }
-
     _notify(title, body) {
         if (this._notification)
             this._notification.destroy();
 
-        let source = this._ensureSource();
-
-        this._notification = new MessageTray.Notification(source, title, body);
-        this._notification.setUrgency(MessageTray.Urgency.HIGH);
+        const source = MessageTray.getSystemSource();
+        this._notification = new MessageTray.Notification({
+            source,
+            title,
+            body,
+            iconName: 'thunderbolt-symbolic',
+            urgency: MessageTray.Urgency.HIGH,
+        });
         this._notification.connect('destroy', () => {
             this._notification = null;
         });
         this._notification.connect('activated', () => {
-            let app = Shell.AppSystem.get_default().lookup_app('gnome-thunderbolt-panel.desktop');
-            if (app)
-                app.activate();
+            const app = Shell.AppSystem.get_default().lookup_app('gnome-thunderbolt-panel.desktop');
+            app?.activate();
         });
-        this._source.showNotification(this._notification);
+        source.addNotification(this._notification);
     }
 
     /* Session callbacks */

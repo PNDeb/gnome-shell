@@ -12,7 +12,7 @@ import * as Calendar from './calendar.js';
 import * as GnomeSession from '../misc/gnomeSession.js';
 import * as Layout from './layout.js';
 import * as Main from './main.js';
-import * as Params from '../misc/params.js';
+import * as MessageList from './messageList.js';
 import * as SignalTracker from '../misc/signalTracker.js';
 
 const SHELL_KEYBINDINGS_SCHEMA = 'org.gnome.shell.keybindings';
@@ -26,7 +26,6 @@ const LONGER_HIDE_TIMEOUT = 600;
 
 const MAX_NOTIFICATIONS_IN_QUEUE = 3;
 const MAX_NOTIFICATIONS_PER_SOURCE = 3;
-const MAX_NOTIFICATION_BUTTONS = 3;
 
 // We delay hiding of the tray if the mouse is within MOUSE_LEFT_ACTOR_THRESHOLD
 // range from the point where it left the tray.
@@ -58,8 +57,7 @@ export const NotificationDestroyedReason = {
 
 // Message tray has its custom Urgency enumeration. LOW, NORMAL and CRITICAL
 // urgency values map to the corresponding values for the notifications received
-// through the notification daemon. HIGH urgency value is used for chats received
-// through the Telepathy client.
+// through the notification daemon.
 /** @enum {number} */
 export const Urgency = {
     LOW: 0,
@@ -160,6 +158,24 @@ export const NotificationPolicy = GObject.registerClass({
             GObject.ParamFlags.READABLE, false),
     },
 }, class NotificationPolicy extends GObject.Object {
+    /**
+     * Create a new policy for app.
+     *
+     * This will be a NotificationApplicationPolicy for valid apps,
+     * or a NotificationGenericPolicy otherwise.
+     *
+     * @param {Shell.App=} app
+     * @returns {NotificationPolicy}
+     */
+    static newForApp(app) {
+        // fallback to generic policy
+        if (!app?.get_app_info())
+            return new NotificationGenericPolicy();
+
+        const id = app.get_id().replace(/\.desktop$/, '');
+        return new NotificationApplicationPolicy(id);
+    }
+
     // Do nothing for the default policy. These methods are only useful for the
     // GSettings policy.
     store() { }
@@ -296,349 +312,172 @@ export const NotificationApplicationPolicy = GObject.registerClass({
     }
 });
 
-// Notification:
-// @source: the notification's Source
-// @title: the title
-// @banner: the banner text
-// @params: optional additional params
-//
-// Creates a notification. In the banner mode, the notification
-// will show an icon, @title (in bold) and @banner, all on a single
-// line (with @banner ellipsized if necessary).
-//
-// The notification will be expandable if either it has additional
-// elements that were added to it or if the @banner text did not
-// fit fully in the banner mode. When the notification is expanded,
-// the @banner text from the top line is always removed. The complete
-// @banner text is added as the first element in the content section,
-// unless 'customContent' parameter with the value 'true' is specified
-// in @params.
-//
-// Additional notification content can be added with addActor() and
-// addBody() methods. The notification content is put inside a
-// scrollview, so if it gets too tall, the notification will scroll
-// rather than continue to grow. In addition to this main content
-// area, there is also a single-row action area, which is not
-// scrolled and can contain a single actor. The action area can
-// be set by calling setActionArea() method. There is also a
-// convenience method addButton() for adding a button to the action
-// area.
-//
-// If @params contains a 'customContent' parameter with the value %true,
-// then @banner will not be shown in the body of the notification when the
-// notification is expanded and calls to update() will not clear the content
-// unless 'clear' parameter with value %true is explicitly specified.
-//
-// By default, the icon shown is the same as the source's.
-// However, if @params contains a 'gicon' parameter, the passed in gicon
-// will be used.
-//
-// You can add a secondary icon to the banner with 'secondaryGIcon'. There
-// is no fallback for this icon.
-//
-// If @params contains 'bannerMarkup', with the value %true, a subset (<b>,
-// <i> and <u>) of the markup in [1] will be interpreted within @banner. If
-// the parameter is not present, then anything that looks like markup
-// in @banner will appear literally in the output.
-//
-// If @params contains a 'clear' parameter with the value %true, then
-// the content and the action area of the notification will be cleared.
-// The content area is also always cleared if 'customContent' is false
-// because it might contain the @banner that didn't fit in the banner mode.
-//
-// If @params contains 'soundName' or 'soundFile', the corresponding
-// event sound is played when the notification is shown (if the policy for
-// @source allows playing sounds).
-//
-// [1] https://developer.gnome.org/notification-spec/#markup
-export const Notification = GObject.registerClass({
-    Properties: {
-        'acknowledged': GObject.ParamSpec.boolean(
-            'acknowledged', 'acknowledged', 'acknowledged',
-            GObject.ParamFlags.READWRITE,
-            false),
-    },
-    Signals: {
-        'activated': {},
-        'destroy': {param_types: [GObject.TYPE_UINT]},
-        'updated': {param_types: [GObject.TYPE_BOOLEAN]},
-    },
-}, class Notification extends GObject.Object {
-    _init(source, title, banner, params) {
-        super._init();
+export const Sound = GObject.registerClass(
+class Sound extends GObject.Object {
+    constructor(file, themedName) {
+        super();
 
-        this.source = source;
-        this.title = title;
-        this.urgency = Urgency.NORMAL;
-        // 'transient' is a reserved keyword in JS, so we have to use an alternate variable name
-        this.isTransient = false;
-        this.privacyScope = PrivacyScope.USER;
-        this.forFeedback = false;
-        this.bannerBodyText = null;
-        this.bannerBodyMarkup = false;
-        this._soundName = null;
-        this._soundFile = null;
-        this._soundPlayed = false;
-        this.actions = [];
-        this.setResident(false);
-
-        // If called with only one argument we assume the caller
-        // will call .update() later on. This is the case of
-        // NotificationDaemon, which wants to use the same code
-        // for new and updated notifications
-        if (arguments.length !== 1)
-            this.update(title, banner, params);
+        this._soundFile = file;
+        this._soundName = themedName;
     }
 
-    // update:
-    // @title: the new title
-    // @banner: the new banner
-    // @params: as in the Notification constructor
-    //
-    // Updates the notification by regenerating its icon and updating
-    // the title/banner. If @params.clear is %true, it will also
-    // remove any additional actors/action buttons previously added.
-    update(title, banner, params) {
-        params = Params.parse(params, {
-            gicon: null,
-            secondaryGIcon: null,
-            bannerMarkup: false,
-            clear: false,
-            datetime: null,
-            soundName: null,
-            soundFile: null,
-        });
+    play() {
+        const player = global.display.get_sound_player();
 
-        this.title = title;
-        this.bannerBodyText = banner;
-        this.bannerBodyMarkup = params.bannerMarkup;
+        if (this._soundName)
+            player.play_from_theme(this._soundName, _('Notification sound'), null);
+        else if (this._soundFile)
+            player.play_from_file(this._soundFile, _('Notification sound'), null);
+    }
+});
 
-        if (params.datetime)
-            this.datetime = params.datetime;
-        else
+export const Action = GObject.registerClass(
+class Action extends GObject.Object {
+    constructor(label, callback) {
+        super();
+
+        this._label = label;
+        this._callback = callback;
+    }
+
+    get label() {
+        return this._label;
+    }
+
+    activate() {
+        this._callback();
+    }
+});
+
+export class Notification extends GObject.Object {
+    constructor(params) {
+        super(params);
+
+        this._actions = [];
+
+        if (!this.datetime)
             this.datetime = GLib.DateTime.new_now_local();
 
-        if (params.gicon || params.clear)
-            this.gicon = params.gicon;
+        // Automatically update the datetime property when the notification
+        // is updated.
+        this.connect('notify', (o, pspec) => {
+            if (pspec.name === 'acknowledged') {
+                // Don't update datetime property
+            } else if (pspec.name === 'datetime') {
+                if (this._updateDatetimeId)
+                    GLib.source_remove(this._updateDatetimeId);
+                delete this._updateDatetimeId;
+            } else if (!this._updateDatetimeId) {
+                this._updateDatetimeId =
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                        delete this._updateDatetimeId;
+                        this.datetime = GLib.DateTime.new_now_local();
+                        return GLib.SOURCE_REMOVE;
+                    });
+            }
+        });
+    }
 
-        if (params.secondaryGIcon || params.clear)
-            this.secondaryGIcon = params.secondaryGIcon;
+    get actions() {
+        return this._actions;
+    }
 
-        if (params.clear)
-            this.actions = [];
+    get iconName() {
+        if (this.gicon instanceof Gio.ThemedIcon)
+            return this.gicon.iconName;
+        else
+            return null;
+    }
 
-        if (this._soundName !== params.soundName ||
-            this._soundFile !== params.soundFile) {
-            this._soundName = params.soundName;
-            this._soundFile = params.soundFile;
-            this._soundPlayed = false;
-        }
+    set iconName(iconName) {
+        this.gicon = new Gio.ThemedIcon({name: iconName});
+    }
 
-        this.emit('updated', params.clear);
+    get privacyScope() {
+        return this._privacyScope;
+    }
+
+    set privacyScope(privacyScope) {
+        if (!Object.values(PrivacyScope).includes(privacyScope))
+            throw new Error('out of range');
+
+        if (this._privacyScope === privacyScope)
+            return;
+
+        this._privacyScope = privacyScope;
+        this.notify('privacy-scope');
+    }
+
+    get urgency() {
+        return this._urgency;
+    }
+
+    set urgency(urgency) {
+        if (!Object.values(Urgency).includes(urgency))
+            throw new Error('out of range');
+
+        if (this._urgency === urgency)
+            return;
+
+        this._urgency = urgency;
+        this.notify('urgency');
     }
 
     // addAction:
     // @label: the label for the action's button
     // @callback: the callback for the action
     addAction(label, callback) {
-        this.actions.push({label, callback});
+        const action = new Action(label, () => {
+            callback();
+
+            // We don't hide a resident notification when the user invokes one of its actions,
+            // because it is common for such notifications to update themselves with new
+            // information based on the action. We'd like to display the updated information
+            // in place, rather than pop-up a new notification.
+            if (this.resident)
+                return;
+
+            this.destroy();
+        });
+        this._actions.push(action);
+        this.emit('action-added', action);
     }
 
-    setUrgency(urgency) {
-        this.urgency = urgency;
-    }
+    clearActions() {
+        if (this._actions.length === 0)
+            return;
 
-    setResident(resident) {
-        this.resident = resident;
-    }
-
-    setTransient(isTransient) {
-        this.isTransient = isTransient;
-    }
-
-    setForFeedback(forFeedback) {
-        this.forFeedback = forFeedback;
-    }
-
-    setPrivacyScope(privacyScope) {
-        this.privacyScope = privacyScope;
+        this._actions.forEach(action => {
+            this.emit('action-removed', action);
+        });
+        this._actions = [];
     }
 
     playSound() {
-        if (this._soundPlayed)
+        if (!this.source.policy.enableSound)
             return;
 
-        if (!this.source.policy.enableSound) {
-            this._soundPlayed = true;
-            return;
-        }
-
-        let player = global.display.get_sound_player();
-        if (this._soundName)
-            player.play_from_theme(this._soundName, this.title, null);
-        else if (this._soundFile)
-            player.play_from_file(this._soundFile, this.title, null);
-    }
-
-    // Allow customizing the banner UI:
-    // the default implementation defers the creation to
-    // the source (which will create a NotificationBanner),
-    // so customization can be done by subclassing either
-    // Notification or Source
-    createBanner() {
-        return this.source.createBanner(this);
+        this.sound?.play(this.title);
     }
 
     activate() {
         this.emit('activated');
 
-        if (!this.resident)
-            this.destroy();
+        // We don't hide a resident notification when the user invokes one of its actions,
+        // because it is common for such notifications to update themselves with new
+        // information based on the action. We'd like to display the updated information
+        // in place, rather than pop-up a new notification.
+        if (this.resident)
+            return;
+
+        this.destroy();
     }
 
     destroy(reason = NotificationDestroyedReason.DISMISSED) {
         this.emit('destroy', reason);
         this.run_dispose();
     }
-});
-SignalTracker.registerDestroyableType(Notification);
-
-export const NotificationBanner = GObject.registerClass({
-    Signals: {
-        'done-displaying': {},
-        'unfocused': {},
-    },
-}, class NotificationBanner extends Calendar.NotificationMessage {
-    _init(notification) {
-        super._init(notification);
-
-        this.can_focus = false;
-        this.add_style_class_name('notification-banner');
-
-        this._buttonBox = null;
-
-        this._addActions();
-        this._addSecondaryIcon();
-
-        this.notification.connectObject('activated', () => {
-            // We hide all types of notifications once the user clicks on
-            // them because the common outcome of clicking should be the
-            // relevant window being brought forward and the user's
-            // attention switching to the window.
-            this.emit('done-displaying');
-        }, this);
-    }
-
-    _onUpdated(n, clear) {
-        super._onUpdated(n, clear);
-
-        if (clear) {
-            this.setSecondaryActor(null);
-            this.setActionArea(null);
-            this._buttonBox = null;
-        }
-
-        this._addActions();
-        this._addSecondaryIcon();
-    }
-
-    _addActions() {
-        this.notification.actions.forEach(action => {
-            this.addAction(action.label, action.callback);
-        });
-    }
-
-    _addSecondaryIcon() {
-        if (this.notification.secondaryGIcon) {
-            const icon = new St.Icon({
-                gicon: this.notification.secondaryGIcon,
-                x_align: Clutter.ActorAlign.END,
-            });
-            this.setSecondaryActor(icon);
-        }
-    }
-
-    addButton(button, callback) {
-        if (!this._buttonBox) {
-            this._buttonBox = new St.BoxLayout({
-                style_class: 'notification-actions',
-                x_expand: true,
-            });
-            this.setActionArea(this._buttonBox);
-            global.focus_manager.add_group(this._buttonBox);
-        }
-
-        if (this._buttonBox.get_n_children() >= MAX_NOTIFICATION_BUTTONS)
-            return null;
-
-        this._buttonBox.add(button);
-        button.connect('clicked', () => {
-            callback();
-
-            if (!this.notification.resident) {
-                // We don't hide a resident notification when the user invokes one of its actions,
-                // because it is common for such notifications to update themselves with new
-                // information based on the action. We'd like to display the updated information
-                // in place, rather than pop-up a new notification.
-                this.emit('done-displaying');
-                this.notification.destroy();
-            }
-        });
-
-        return button;
-    }
-
-    addAction(label, callback) {
-        const button = new St.Button({
-            style_class: 'notification-button',
-            label,
-            x_expand: true,
-            can_focus: true,
-        });
-
-        return this.addButton(button, callback);
-    }
-});
-
-export const SourceActor = GObject.registerClass(
-class SourceActor extends St.Widget {
-    _init(source, size) {
-        super._init();
-
-        this._source = source;
-        this._size = size;
-
-        this.connect('destroy',
-            () => (this._actorDestroyed = true));
-        this._actorDestroyed = false;
-
-        let scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        this._iconBin = new St.Bin({
-            x_expand: true,
-            height: size * scaleFactor,
-            width: size * scaleFactor,
-        });
-
-        this.add_actor(this._iconBin);
-
-        this._source.connectObject('icon-updated',
-            this._updateIcon.bind(this), this);
-        this._updateIcon();
-    }
-
-    setIcon(icon) {
-        this._iconBin.child = icon;
-        this._iconSet = true;
-    }
-
-    _updateIcon() {
-        if (this._actorDestroyed)
-            return;
-
-        if (!this._iconSet)
-            this._iconBin.child = this._source.createIcon(this._size);
-    }
-});
+}
 
 export const Source = GObject.registerClass({
     Properties: {
@@ -650,30 +489,21 @@ export const Source = GObject.registerClass({
             'policy', 'policy', 'policy',
             GObject.ParamFlags.READWRITE,
             NotificationPolicy.$gtype),
-        'title': GObject.ParamSpec.string(
-            'title', 'title', 'title',
-            GObject.ParamFlags.READWRITE,
-            null),
     },
     Signals: {
         'destroy': {param_types: [GObject.TYPE_UINT]},
-        'icon-updated': {},
         'notification-added': {param_types: [Notification.$gtype]},
-        'notification-show': {param_types: [Notification.$gtype]},
+        'notification-removed': {param_types: [Notification.$gtype]},
+        'notification-request-banner': {param_types: [Notification.$gtype]},
     },
-}, class Source extends GObject.Object {
-    _init(title, iconName) {
-        super._init({title});
-
-        this.SOURCE_ICON_SIZE = 48;
-
-        this.iconName = iconName;
-
-        this.isChat = false;
+}, class Source extends MessageList.Source {
+    constructor(params) {
+        super(params);
 
         this.notifications = [];
 
-        this._policy = this._createPolicy();
+        if (!this._policy)
+            this._policy = new NotificationGenericPolicy();
     }
 
     get policy() {
@@ -702,95 +532,60 @@ export const Source = GObject.registerClass({
         this.notify('count');
     }
 
-    _createPolicy() {
-        return new NotificationGenericPolicy();
-    }
-
     get narrowestPrivacyScope() {
         return this.notifications.every(n => n.privacyScope === PrivacyScope.SYSTEM)
             ? PrivacyScope.SYSTEM
             : PrivacyScope.USER;
     }
 
-    setTitle(newTitle) {
-        if (this.title === newTitle)
-            return;
-
-        this.title = newTitle;
-        this.notify('title');
-    }
-
-    createBanner(notification) {
-        return new NotificationBanner(notification);
-    }
-
-    // Called to create a new icon actor.
-    // Provides a sane default implementation, override if you need
-    // something more fancy.
-    createIcon(size) {
-        return new St.Icon({
-            gicon: this.getIcon(),
-            icon_size: size,
-        });
-    }
-
-    getIcon() {
-        return new Gio.ThemedIcon({name: this.iconName});
-    }
-
     _onNotificationDestroy(notification) {
         let index = this.notifications.indexOf(notification);
         if (index < 0)
-            return;
+            throw new Error('Notification was already removed previously');
 
         this.notifications.splice(index, 1);
+        this.emit('notification-removed', notification);
         this.countUpdated();
 
-        if (this.notifications.length === 0)
+        if (!this._inDestruction && this.notifications.length === 0)
             this.destroy();
     }
 
-    pushNotification(notification) {
+    addNotification(notification) {
         if (this.notifications.includes(notification))
             return;
 
-        while (this.notifications.length >= MAX_NOTIFICATIONS_PER_SOURCE)
-            this.notifications.shift().destroy(NotificationDestroyedReason.EXPIRED);
+        while (this.notifications.length >= MAX_NOTIFICATIONS_PER_SOURCE) {
+            const [oldest] = this.notifications;
+            oldest.destroy(NotificationDestroyedReason.EXPIRED);
+        }
 
         notification.connect('destroy', this._onNotificationDestroy.bind(this));
-        notification.connect('notify::acknowledged', this.countUpdated.bind(this));
+        notification.connect('notify::acknowledged', () => {
+            this.countUpdated();
+
+            // If acknowledged was set to false try to show the notification again
+            if (!notification.acknowledged)
+                this.emit('notification-request-banner', notification);
+        });
         this.notifications.push(notification);
+
         this.emit('notification-added', notification);
-
-        this.countUpdated();
-    }
-
-    showNotification(notification) {
-        notification.acknowledged = false;
-        this.pushNotification(notification);
-
-        if (notification.urgency === Urgency.LOW)
-            return;
-
-        if (this.policy.showBanners || notification.urgency === Urgency.CRITICAL)
-            this.emit('notification-show', notification);
+        this.emit('notification-request-banner', notification);
     }
 
     destroy(reason) {
-        let notifications = this.notifications;
-        this.notifications = [];
+        this._inDestruction = true;
 
-        for (let i = 0; i < notifications.length; i++)
-            notifications[i].destroy(reason);
+        while (this.notifications.length > 0) {
+            const [oldest] = this.notifications;
+            oldest.destroy(reason);
+        }
 
         this.emit('destroy', reason);
 
         this.policy.destroy();
         this.run_dispose();
-    }
-
-    iconUpdated() {
-        this.emit('icon-updated');
     }
 
     // To be overridden by subclasses
@@ -805,6 +600,78 @@ export const Source = GObject.registerClass({
     }
 });
 SignalTracker.registerDestroyableType(Source);
+
+GObject.registerClass({
+    Properties: {
+        'source': GObject.ParamSpec.object(
+            'source', 'source', 'source',
+            GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT_ONLY,
+            Source),
+        'title': GObject.ParamSpec.string(
+            'title', 'title', 'title',
+            GObject.ParamFlags.READWRITE,
+            null),
+        'body': GObject.ParamSpec.string(
+            'body', 'body', 'body',
+            GObject.ParamFlags.READWRITE,
+            null),
+        'use-body-markup': GObject.ParamSpec.boolean(
+            'use-body-markup', 'use-body-markup', 'use-body-markup',
+            GObject.ParamFlags.READWRITE,
+            false),
+        'gicon': GObject.ParamSpec.object(
+            'gicon', 'gicon', 'gicon',
+            GObject.ParamFlags.READWRITE,
+            Gio.Icon),
+        'icon-name': GObject.ParamSpec.string(
+            'icon-name', 'icon-name', 'icon-name',
+            GObject.ParamFlags.READWRITE,
+            null),
+        'sound': GObject.ParamSpec.object(
+            'sound', 'sound', 'sound',
+            GObject.ParamFlags.READWRITE,
+            Sound),
+        'datetime': GObject.ParamSpec.boxed(
+            'datetime', 'datetime', 'datetime',
+            GObject.ParamFlags.READWRITE,
+            GLib.DateTime),
+        // Unfortunately we can't register new enum types in GJS
+        // See: https://gitlab.gnome.org/GNOME/gjs/-/issues/573
+        'privacy-scope': GObject.ParamSpec.int(
+            'privacy-scope', 'privacy-scope', 'privacy-scope',
+            GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT,
+            0, GLib.MAXINT32,
+            PrivacyScope.User),
+        'urgency': GObject.ParamSpec.int(
+            'urgency', 'urgency', 'urgency',
+            GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT,
+            0, GLib.MAXINT32,
+            Urgency.NORMAL),
+        'acknowledged': GObject.ParamSpec.boolean(
+            'acknowledged', 'acknowledged', 'acknowledged',
+            GObject.ParamFlags.READWRITE,
+            false),
+        'resident': GObject.ParamSpec.boolean(
+            'resident', 'resident', 'resident',
+            GObject.ParamFlags.READWRITE,
+            false),
+        'for-feedback': GObject.ParamSpec.boolean(
+            'for-feedback', 'for-feedback', 'for-feedback',
+            GObject.ParamFlags.READWRITE,
+            false),
+        'is-transient': GObject.ParamSpec.boolean(
+            'is-transient', 'is-transient', 'is-transient',
+            GObject.ParamFlags.READWRITE,
+            false),
+    },
+    Signals: {
+        'action-added': {param_types: [Action]},
+        'action-removed': {param_types: [Action]},
+        'activated': {},
+        'destroy': {param_types: [GObject.TYPE_UINT]},
+    },
+}, Notification);
+SignalTracker.registerDestroyableType(Notification);
 
 export const MessageTray = GObject.registerClass({
     Signals: {
@@ -849,7 +716,7 @@ export const MessageTray = GObject.registerClass({
             this._onNotificationKeyRelease.bind(this));
         this._bannerBin.connect('notify::hover',
             this._onNotificationHoverChanged.bind(this));
-        this.add_actor(this._bannerBin);
+        this.add_child(this._bannerBin);
 
         this._notificationFocusGrabber = new FocusGrabber(this._bannerBin);
         this._notificationQueue = [];
@@ -983,7 +850,8 @@ export const MessageTray = GObject.registerClass({
         this._sources.add(source);
 
         source.connectObject(
-            'notification-show', this._onNotificationShow.bind(this),
+            'notification-request-banner', this._onNotificationRequestBanner.bind(this),
+            'notification-removed', this._onNotificationRemoved.bind(this),
             'destroy', () => this._removeSource(source), this);
 
         this.emit('source-added', source);
@@ -1011,11 +879,12 @@ export const MessageTray = GObject.registerClass({
         }
     }
 
-    _onNotificationDestroy(notification) {
+    _onNotificationRemoved(source, notification) {
         if (this._notification === notification) {
             this._notificationRemoved = true;
             if (this._notificationState === State.SHOWN ||
                 this._notificationState === State.SHOWING) {
+                this._pointerInNotification = false;
                 this._updateNotificationTimeout(0);
                 this._updateState();
             }
@@ -1028,7 +897,17 @@ export const MessageTray = GObject.registerClass({
         }
     }
 
-    _onNotificationShow(_source, notification) {
+    _onNotificationRequestBanner(_source, notification) {
+        // We never display a banner for already acknowledged notifications
+        if (notification.acknowledged)
+            return;
+
+        if (notification.urgency === Urgency.LOW)
+            return;
+
+        if (!notification.source.policy.showBanners && notification.urgency !== Urgency.CRITICAL)
+            return;
+
         if (this._notification === notification) {
             // If a notification that is being shown is updated, we update
             // how it is shown and extend the time until it auto-hides.
@@ -1042,8 +921,6 @@ export const MessageTray = GObject.registerClass({
             let bannerCount = this._notification ? 1 : 0;
             let full = this.queueCount + bannerCount >= MAX_NOTIFICATIONS_IN_QUEUE;
             if (!full || notification.urgency === Urgency.CRITICAL) {
-                notification.connect('destroy',
-                    this._onNotificationDestroy.bind(this));
                 this._notificationQueue.push(notification);
                 this._notificationQueue.sort(
                     (n1, n2) => n2.urgency - n1.urgency);
@@ -1146,12 +1023,6 @@ export const MessageTray = GObject.registerClass({
         return GLib.SOURCE_REMOVE;
     }
 
-    _escapeTray() {
-        this._pointerInNotification = false;
-        this._updateNotificationTimeout(0);
-        this._updateState();
-    }
-
     // All of the logic for what happens when occurs here; the various
     // event handlers merely update variables such as
     // 'this._pointerInNotification', 'this._traySummoned', etc, and
@@ -1195,7 +1066,6 @@ export const MessageTray = GObject.registerClass({
             let expired = (this._userActiveWhileNotificationShown &&
                            this._notificationTimeoutId === 0 &&
                            this._notification.urgency !== Urgency.CRITICAL &&
-                           !this._banner.focused &&
                            !this._pointerInNotification) || this._notificationExpired;
             let mustClose = this._notificationRemoved || !hasNotifications || expired;
 
@@ -1235,12 +1105,11 @@ export const MessageTray = GObject.registerClass({
             this.idleMonitor.add_user_active_watch(this._onIdleMonitorBecameActive.bind(this));
         }
 
-        this._banner = this._notification.createBanner();
-        this._banner.connectObject(
-            'done-displaying', this._escapeTray.bind(this),
-            'unfocused', () => this._updateState(), this);
+        this._banner = new Calendar.NotificationMessage(this._notification);
+        this._banner.can_focus = false;
+        this._banner.add_style_class_name('notification-banner');
 
-        this._bannerBin.add_actor(this._banner);
+        this._bannerBin.add_child(this._banner);
 
         this._bannerBin.opacity = 0;
         this._bannerBin.y = -this._banner.height;
@@ -1411,13 +1280,25 @@ export const MessageTray = GObject.registerClass({
     }
 });
 
-export const SystemNotificationSource = GObject.registerClass(
-class SystemNotificationSource extends Source {
-    _init() {
-        super._init(_('System Information'), 'dialog-information-symbolic');
+let systemNotificationSource = null;
+
+/**
+ * The {Source} that should be used to send system notifications.
+ *
+ * @returns {Source}
+ */
+export function getSystemSource() {
+    if (!systemNotificationSource) {
+        systemNotificationSource = new Source({
+            title: _('System'),
+            iconName: 'emblem-system-symbolic',
+        });
+
+        systemNotificationSource.connect('destroy', () => {
+            systemNotificationSource = null;
+        });
+        Main.messageTray.add(systemNotificationSource);
     }
 
-    open() {
-        this.destroy();
-    }
-});
+    return systemNotificationSource;
+}

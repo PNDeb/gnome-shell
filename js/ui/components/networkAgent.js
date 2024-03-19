@@ -11,7 +11,6 @@ import St from 'gi://St';
 import * as Signals from '../../misc/signals.js';
 
 import * as Dialog from '../dialog.js';
-import * as Main from '../main.js';
 import * as MessageTray from '../messageTray.js';
 import * as ModalDialog from '../modalDialog.js';
 import * as ShellEntry from '../shellEntry.js';
@@ -649,7 +648,7 @@ class VPNRequestHandler extends Signals.EventEmitter {
         if (contentOverride && contentOverride.secrets.length) {
             // Only show the dialog if we actually have something to ask
             this._shellDialog = new NetworkSecretDialog(this._agent, this._requestId, this._connection, 'vpn', [], this._flags, contentOverride);
-            this._shellDialog.open(global.get_current_time());
+            this._shellDialog.open();
         } else {
             this._agent.respond(this._requestId, Shell.NetworkAgentResponse.CONFIRMED);
             this.destroy();
@@ -740,9 +739,6 @@ class NetworkAgent {
     }
 
     _showNotification(requestId, connection, settingName, hints, flags) {
-        let source = new MessageTray.Source(_('Network Manager'), 'network-transmit-receive');
-        source.policy = new MessageTray.NotificationApplicationPolicy('gnome-network-panel');
-
         let title, body;
 
         let connectionSetting = connection.get_setting_connection();
@@ -785,7 +781,9 @@ class NetworkAgent {
             return;
         }
 
-        let notification = new MessageTray.Notification(source, title, body);
+        const source = MessageTray.getSystemSource();
+        const notification = new MessageTray.Notification({source, title, body});
+        notification.iconName = 'dialog-password-symbolic';
 
         notification.connect('activated', () => {
             notification.answered = true;
@@ -799,8 +797,7 @@ class NetworkAgent {
             delete this._notifications[requestId];
         });
 
-        Main.messageTray.add(source);
-        source.showNotification(notification);
+        source.addNotification(notification);
     }
 
     _newRequest(agent, requestId, connection, settingName, hints, flags) {
@@ -821,7 +818,7 @@ class NetworkAgent {
             delete this._dialogs[requestId];
         });
         this._dialogs[requestId] = dialog;
-        dialog.open(global.get_current_time());
+        dialog.open();
     }
 
     _cancelRequest(agent, requestId) {

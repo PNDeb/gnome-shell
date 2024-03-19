@@ -144,7 +144,7 @@ export const Lightbox = GObject.registerClass({
         else
             this.set({opacity: 0, style_class: 'lightbox'});
 
-        container.add_actor(this);
+        container.add_child(this);
         container.set_child_above_sibling(this, null);
 
         this.connect('destroy', this._onDestroy.bind(this));
@@ -157,8 +157,8 @@ export const Lightbox = GObject.registerClass({
         }
 
         container.connectObject(
-            'actor-added', this._actorAdded.bind(this),
-            'actor-removed', this._actorRemoved.bind(this), this);
+            'child-added', this._childAdded.bind(this),
+            'child-removed', this._childRemoved.bind(this), this);
 
         this._highlighted = null;
     }
@@ -167,7 +167,7 @@ export const Lightbox = GObject.registerClass({
         return this._active;
     }
 
-    _actorAdded(container, newChild) {
+    _childAdded(container, newChild) {
         let children = this._container.get_children();
         let myIndex = children.indexOf(this);
         let newChildIndex = children.indexOf(newChild);
@@ -209,12 +209,13 @@ export const Lightbox = GObject.registerClass({
                 '@effects.radial.brightness', VIGNETTE_BRIGHTNESS, easeProps);
             this.ease_property(
                 '@effects.radial.sharpness', VIGNETTE_SHARPNESS,
-                Object.assign({onComplete}, easeProps));
+                {onComplete, ...easeProps});
         } else {
-            this.ease(Object.assign(easeProps, {
+            this.ease({
+                ...easeProps,
                 opacity: 255 * this._fadeFactor,
                 onComplete,
-            }));
+            });
         }
     }
 
@@ -235,13 +236,13 @@ export const Lightbox = GObject.registerClass({
             this.ease_property(
                 '@effects.radial.brightness', 1.0, easeProps);
             this.ease_property(
-                '@effects.radial.sharpness', 0.0, Object.assign({onComplete}, easeProps));
+                '@effects.radial.sharpness', 0.0, {onComplete, ...easeProps});
         } else {
-            this.ease(Object.assign(easeProps, {opacity: 0, onComplete}));
+            this.ease({...easeProps, opacity: 0, onComplete});
         }
     }
 
-    _actorRemoved(container, child) {
+    _childRemoved(container, child) {
         let index = this._children.indexOf(child);
         if (index !== -1) // paranoia
             this._children.splice(index, 1);

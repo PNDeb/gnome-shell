@@ -28,7 +28,6 @@ js/ui/components/autorunManager.js
 js/ui/components/keyring.js
 js/ui/components/networkAgent.js
 js/ui/components/polkitAgent.js
-js/ui/components/telepathyClient.js
 js/ui/ctrlAltTab.js
 js/ui/dash.js
 js/ui/dateMenu.js
@@ -92,9 +91,12 @@ src/shell-util.c
 src/st/st-icon-theme.c
 subprojects/extensions-app/data/metainfo/org.gnome.Extensions.metainfo.xml.in
 subprojects/extensions-app/data/org.gnome.Extensions.desktop.in.in
-subprojects/extensions-app/js/main.js
+subprojects/extensions-app/js/extensionManager.js
+subprojects/extensions-app/js/extensionRow.js
+subprojects/extensions-app/js/extensionsWindow.js
 subprojects/extensions-app/data/ui/extension-row.ui
 subprojects/extensions-app/data/ui/extensions-window.ui
+subprojects/extensions-app/data/ui/help-overlay.ui
 subprojects/extensions-tool/src/command-create.c
 subprojects/extensions-tool/src/command-disable.c
 subprojects/extensions-tool/src/command-enable.c
