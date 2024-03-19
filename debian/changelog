@@ -1,8 +1,15 @@
-gnome-shell (46.0-1) UNRELEASED; urgency=medium
+gnome-shell (46.0-1) experimental; urgency=medium
 
   * New upstream release
+  * Bump minimum mutter to 46.0
+  * Bump minimum gsettings-desktop-schemas
+  * Build-Depend on libgtk-3-dev
+  * debian/gnome-shell.install: GNOME Shell no longer provides
+    xdg-desktop-portal components
+  * Skip shell build tests for now since they are flaky
+  * Refresh patches
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 19 Mar 2024 15:22:13 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Tue, 19 Mar 2024 15:36:16 -0400
 
 gnome-shell (45.3-2) experimental; urgency=medium
 
