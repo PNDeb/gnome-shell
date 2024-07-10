@@ -1,8 +1,23 @@
-gnome-shell (46.3.1-1) UNRELEASED; urgency=medium
+gnome-shell (46.3.1-1) experimental; urgency=medium
 
-  * New upstream release
+  [ Marco Trevisan (Treviño) ]
+  * New upstream release (LP: #2072703)
+  * debian/control: Remove unused dependencies, following upstream.
+    Upstream meson.build removed various unused dependencies, so drop them
+    from our control file too
+  * d/p: Do not make tray icons to take any input event directly.
+    This is all handled through their actor proxy representation (LP: #2012388)
+  * d/p: Resize tray icon windows to respect their actor representation
+    (LP: #2012388)
+  * debian/changelog: Reference bugs fixed in previous versions
 
- -- Marco Trevisan (Treviño) <marco@ubuntu.com>  Wed, 10 Jul 2024 17:12:14 +0200
+  [ Daniel van Vugt ]
+  * Add st-theme-node-Forget-properties-cache-on-stylesheet-chang.patch.
+    To fix crashes that occur when locking the screen from within the overview.
+    But more generally can occur whenever any extension that modifies
+    stylesheets (like ubuntu-dock or dash-to-dock) is unloaded (LP: #2069559).
+
+ -- Marco Trevisan (Treviño) <marco@ubuntu.com>  Thu, 11 Jul 2024 00:02:12 +0200
 
 gnome-shell (46.2-1) experimental; urgency=medium
 
