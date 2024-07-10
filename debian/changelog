@@ -6,7 +6,10 @@ gnome-shell (46.3.1-1) UNRELEASED; urgency=medium
 
 gnome-shell (46.2-1) experimental; urgency=medium
 
-  * New upstream release
+  * New upstream release:
+    - Exclude override-redirect windows from workspace animation (LP: #2039543)
+    - Fix possible hang on startup during ibus-daemon launch (LP: #2019776)
+    - Use absolute tray icon position in root event coordinates (LP: #2059819)
   * Drop screencast patch applied in new release
   * Drop revert tecla patch: no longer needed
   * Add Depends: tecla. Drop Recommends: gkbd-capplet
