@@ -1,3 +1,9 @@
+gnome-shell (46.3.1-2) unstable; urgency=medium
+
+  * Release to unstable
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 12 Jul 2024 18:29:07 -0400
+
 gnome-shell (46.3.1-1) experimental; urgency=medium
 
   [ Marco Trevisan (Treviño) ]
@@ -72,6 +78,19 @@ gnome-shell (45.3-2) experimental; urgency=medium
     - All other changes were included in 45.3-1
 
  -- Simon McVittie <smcv@debian.org>  Mon, 15 Jan 2024 17:46:37 +0000
+
+gnome-shell (44.9-2) unstable; urgency=high
+
+  * Team upload
+  * d/p/screencast-Correct-expected-bus-name-for-streams.patch:
+    Avoid screencast regression after fixing CVE-2024-34397.
+    Previously, screencasting expected signals to come from the wrong
+    D-Bus name, which only worked because there was a vulnerability in
+    GLib that resulted in the sender being ignored.
+  * Set urgency=high because this fixes a regression triggered by a
+    security fix.
+
+ -- Simon McVittie <smcv@debian.org>  Mon, 06 May 2024 22:41:00 +0100
 
 gnome-shell (44.9-1) unstable; urgency=medium
 
