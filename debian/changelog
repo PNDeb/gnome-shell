@@ -1,3 +1,18 @@
+gnome-shell (46.3.1-3) UNRELEASED; urgency=medium
+
+  [ Jeremy Bícha ]
+  * debian/salsa-ci.yml: Don't force building for experimental
+
+  [ Simon McVittie ]
+  * d/control: Explicitly version various dependencies as per meson.build:
+    GLib 2.80, Gcr 3.90, NM 1.10.4, Pipewire 0.3.49
+  * d/control: Remove version constraints unnecessary since bullseye
+    (oldstable)
+  * d/control: Remove obsolete Breaks/Replaces on pre-3.36 versions,
+    unnecessary since bullseye (oldstable)
+
+ -- Simon McVittie <smcv@debian.org>  Wed, 24 Jul 2024 12:39:37 +0100
+
 gnome-shell (46.3.1-2) unstable; urgency=medium
 
   * Release to unstable
