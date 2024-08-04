@@ -1,8 +1,8 @@
-gnome-shell (46.4-1) UNRELEASED; urgency=medium
+gnome-shell (46.4-1) unstable; urgency=medium
 
   * New upstream release
 
- -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 04 Aug 2024 16:30:34 -0400
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 04 Aug 2024 16:35:07 -0400
 
 gnome-shell (46.3.1-4) unstable; urgency=medium
 
