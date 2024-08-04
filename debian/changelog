@@ -1,3 +1,9 @@
+gnome-shell (46.4-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sun, 04 Aug 2024 16:30:34 -0400
+
 gnome-shell (46.3.1-4) unstable; urgency=medium
 
   * Skip the shell tests on riscv64
