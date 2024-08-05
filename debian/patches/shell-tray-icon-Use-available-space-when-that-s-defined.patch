@@ -3,7 +3,6 @@ Date: Wed, 1 May 2024 04:18:50 +0200
 Subject: shell-tray-icon: Use available space when that's defined
 
 Fixes: https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/7613
-(cherry picked from commit b10bfe1f9ce2b7794103f54bcf249f935678b5f7)
 
 Origin: https://gitlab.gnome.org/3v1n0/gnome-shell/-/commits/tray-offscreen-xwindows
 Bug-Ubuntu: https://bugs.launchpad.net/bugs/2012388
@@ -29,7 +28,7 @@ index 3eee5f5..e1ff1cd 100644
     */
    clutter_actor_get_transformed_position (actor, &wx, &wy);
 diff --git a/src/tray/na-xembed.c b/src/tray/na-xembed.c
-index 69690f1..447c1cb 100644
+index 51c6d96..f238979 100644
 --- a/src/tray/na-xembed.c
 +++ b/src/tray/na-xembed.c
 @@ -43,6 +43,8 @@ struct _NaXembedPrivate
@@ -97,7 +96,7 @@ index 69690f1..447c1cb 100644
  na_xembed_get_root_position (NaXembed *xembed,
                               int      *x,
 diff --git a/src/tray/na-xembed.h b/src/tray/na-xembed.h
-index ea8f9f4..751da97 100644
+index f6b9bc0..9aed044 100644
 --- a/src/tray/na-xembed.h
 +++ b/src/tray/na-xembed.h
 @@ -59,6 +59,10 @@ void na_xembed_get_size (NaXembed *xembed,
@@ -108,6 +107,6 @@ index ea8f9f4..751da97 100644
 +				   int       width,
 +				   int       height);
 +
- void na_xembed_set_background_color (NaXembed           *xembed,
- 				     const ClutterColor *color);
+ void na_xembed_set_background_color (NaXembed        *xembed,
+                                      const CoglColor *color);
  

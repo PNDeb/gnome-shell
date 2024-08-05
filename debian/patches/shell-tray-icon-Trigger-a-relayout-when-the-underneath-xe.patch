@@ -3,8 +3,6 @@ Date: Wed, 1 May 2024 04:20:42 +0200
 Subject: shell-tray-icon: Trigger a relayout when the underneath xembeded
  size changes
 
-(cherry picked from commit 8ebb71d9fdb8990e4e9731cc7662dbf704ce42a8)
-
 Origin: https://gitlab.gnome.org/3v1n0/gnome-shell/-/commits/tray-offscreen-xwindows
 Bug-Ubuntu: https://bugs.launchpad.net/bugs/2012388
 ---
@@ -14,10 +12,10 @@ Bug-Ubuntu: https://bugs.launchpad.net/bugs/2012388
  3 files changed, 23 insertions(+)
 
 diff --git a/src/shell-tray-icon.c b/src/shell-tray-icon.c
-index e1ff1cd..ddf40dd 100644
+index b242533..19e4570 100644
 --- a/src/shell-tray-icon.c
 +++ b/src/shell-tray-icon.c
-@@ -265,6 +265,10 @@ shell_tray_icon_set_child (ShellTrayIcon *tray_icon,
+@@ -266,6 +266,10 @@ shell_tray_icon_set_child (ShellTrayIcon *tray_icon,
                        "window-created",
                        G_CALLBACK (shell_tray_icon_window_created_cb),
                        tray_icon);
@@ -29,7 +27,7 @@ index e1ff1cd..ddf40dd 100644
  
  /*
 diff --git a/src/tray/na-xembed.c b/src/tray/na-xembed.c
-index 447c1cb..873d193 100644
+index f238979..116cb8a 100644
 --- a/src/tray/na-xembed.c
 +++ b/src/tray/na-xembed.c
 @@ -91,6 +91,7 @@ G_DEFINE_TYPE_WITH_PRIVATE (NaXembed, na_xembed, G_TYPE_OBJECT)
@@ -72,7 +70,7 @@ index 447c1cb..873d193 100644
      g_param_spec_object ("x11-display",
                           "x11-display",
 diff --git a/src/tray/na-xembed.h b/src/tray/na-xembed.h
-index 751da97..a5a4fae 100644
+index 9aed044..bae2645 100644
 --- a/src/tray/na-xembed.h
 +++ b/src/tray/na-xembed.h
 @@ -36,6 +36,7 @@ struct _NaXembedClass

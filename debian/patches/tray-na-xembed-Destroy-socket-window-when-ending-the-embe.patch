@@ -13,7 +13,6 @@ So, when embedding is ending we need to make sure that:
    by something else), we've to just destroy the socket window
 
 Fixes: https://gitlab.gnome.org/GNOME/gnome-shell/-/issues/7614
-(cherry picked from commit 50a6e1e3ceb18e52f87534507ccd49884d7f53eb)
 
 Origin: https://gitlab.gnome.org/3v1n0/gnome-shell/-/commits/tray-offscreen-xwindows
 Bug-Ubuntu: https://bugs.launchpad.net/bugs/2012388
@@ -22,7 +21,7 @@ Bug-Ubuntu: https://bugs.launchpad.net/bugs/2012388
  1 file changed, 38 insertions(+), 1 deletion(-)
 
 diff --git a/src/tray/na-xembed.c b/src/tray/na-xembed.c
-index 873d193..a255500 100644
+index 46c613c..2404997 100644
 --- a/src/tray/na-xembed.c
 +++ b/src/tray/na-xembed.c
 @@ -36,6 +36,7 @@ struct _NaXembedPrivate
@@ -33,7 +32,7 @@ index 873d193..a255500 100644
  
    int root_x;
    int root_y;
-@@ -140,7 +141,26 @@ na_xembed_end_embedding (NaXembed *xembed)
+@@ -139,7 +140,26 @@ na_xembed_end_embedding (NaXembed *xembed)
  {
    NaXembedPrivate *priv = na_xembed_get_instance_private (xembed);
  
@@ -60,7 +59,7 @@ index 873d193..a255500 100644
    priv->current_width = 0;
    priv->current_height = 0;
    priv->resize_count = 0;
-@@ -415,6 +435,18 @@ na_xembed_add_window (NaXembed  *xembed,
+@@ -413,6 +433,18 @@ na_xembed_add_window (NaXembed  *xembed,
                         &socket_attrs);
  
        XUnmapWindow (xdisplay, priv->plug_window); /* Shouldn't actually be necessary for XEMBED, but just in case */
@@ -79,7 +78,7 @@ index 873d193..a255500 100644
        XReparentWindow (xdisplay,
                         priv->plug_window,
                         priv->socket_window,
-@@ -565,10 +597,14 @@ xembed_filter_func (MetaX11Display *x11_display,
+@@ -563,10 +595,14 @@ xembed_filter_func (MetaX11Display *x11_display,
          /* Note that we get destroy notifies both from SubstructureNotify on
           * our window and StructureNotify on socket->plug_window
           */
@@ -94,7 +93,7 @@ index 873d193..a255500 100644
              na_xembed_end_embedding (xembed);
              g_object_unref (xembed);
            }
-@@ -633,6 +669,7 @@ xembed_filter_func (MetaX11Display *x11_display,
+@@ -631,6 +667,7 @@ xembed_filter_func (MetaX11Display *x11_display,
            {
              g_object_ref (xembed);
              g_signal_emit (xembed, signals[PLUG_REMOVED], 0);
@@ -102,7 +101,7 @@ index 873d193..a255500 100644
              na_xembed_end_embedding (xembed);
              g_object_unref (xembed);
            }
-@@ -698,7 +735,7 @@ na_xembed_finalize (GObject *object)
+@@ -696,7 +733,7 @@ na_xembed_finalize (GObject *object)
    if (priv->x11_display && priv->event_func_id)
      meta_x11_display_remove_event_func (priv->x11_display, priv->event_func_id);
  
