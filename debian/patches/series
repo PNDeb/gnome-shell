@@ -6,3 +6,4 @@ shell-tray-icon-Use-available-space-when-that-s-defined.patch
 shell-tray-icon-Trigger-a-relayout-when-the-underneath-xe.patch
 tray-na-xembed-Destroy-socket-window-when-ending-the-embe.patch
 st-theme-node-Forget-properties-cache-on-stylesheet-chang.patch
+allow-silent-display-changes.patch
