@@ -4,7 +4,6 @@ Priority: optional
 Maintainer: Debian GNOME Maintainers <pkg-gnome-maintainers@lists.alioth.debian.org>
 Uploaders: Jeremy Bícha <jbicha@ubuntu.com>, Marco Trevisan (Treviño) <marco@ubuntu.com>
 Build-Depends: appstream,
-               asciidoc-base,
                bash-completion,
                dbus-daemon <!nocheck>,
                debhelper-compat (= 13),
@@ -61,6 +60,7 @@ Build-Depends: appstream,
                meson (>= 0.58.0),
                mutter (>= 47~rc) <!nocheck>,
                pkgconf,
+               python3-docutils,
                sassc,
                systemd-dev [linux-any],
                xauth <!nocheck>,
