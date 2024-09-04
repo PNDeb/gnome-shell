@@ -1,3 +1,13 @@
+gnome-shell (47~rc-1) UNRELEASED; urgency=medium
+
+  [ Jeremy Bícha ]
+  * New upstream release
+
+  [ Daniel van Vugt ]
+  * debian/control: Don't depend on exact versions of gnome-shell-common
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Wed, 04 Sep 2024 16:34:50 -0400
+
 gnome-shell (47~beta-1) experimental; urgency=medium
 
   * New upstream release
