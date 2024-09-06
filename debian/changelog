@@ -1,3 +1,11 @@
+gnome-shell (47~rc-2) experimental; urgency=medium
+
+  * Disable the portal helper popup window and use the notification/browser
+    method instead. Hardening related to CVE-2024-36472 (Closes: #1072124)
+  * Drop now unused Depends: gir1.2-webkit-6.0
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 06 Sep 2024 14:08:52 -0400
+
 gnome-shell (47~rc-1) experimental; urgency=medium
 
   [ Jeremy Bícha ]
