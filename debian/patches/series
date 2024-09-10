@@ -8,3 +8,4 @@ tray-icons/tray-Zero-initialize-the-event-structures-on-initializati.patch
 tray-icons/tray-na-xembed-Use-proper-indentation-style-header.patch
 tray-icons/tray-na-xembed-Destroy-socket-window-when-ending-the-embe.patch
 tray-icons/tray-na-tray-manager-Remove-outdated-comment-and-return-v.patch
+shell-app-Warn-instead-of-crashing-if-disposed-before-sta.patch
