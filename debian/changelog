@@ -1,3 +1,12 @@
+gnome-shell (47~rc-4) UNRELEASED; urgency=medium
+
+  [ Daniel van Vugt ]
+  * Add shell-app-Warn-instead-of-crashing-if-disposed-before-sta.patch
+    to avoid crashing the shell if an app misbehaves coincidentally close
+    to a garbage collection run (LP: #2037055)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Sat, 14 Sep 2024 21:06:45 -0400
+
 gnome-shell (47~rc-3) experimental; urgency=medium
 
   * Disable the portal helper popup window and use the notification/browser
