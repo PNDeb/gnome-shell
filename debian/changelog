@@ -1,3 +1,9 @@
+gnome-shell (47.0-3) unstable; urgency=medium
+
+  * Release to unstable (Closes: #1060684)
+
+ -- Jeremy Bícha <jbicha@ubuntu.com>  Fri, 04 Oct 2024 19:14:09 -0400
+
 gnome-shell (47.0-2) experimental; urgency=medium
 
   * Update gnome-browser-connector binary package name
