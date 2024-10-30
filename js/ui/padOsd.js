@@ -17,7 +17,7 @@ import * as Layout from './layout.js';
 
 import {loadInterfaceXML} from '../misc/fileUtils.js';
 
-const ACTIVE_COLOR = '#729fcf';
+const ACTIVE_COLOR = 'st-lighten(-st-accent-color, 15%)';
 
 const LTR = 0;
 const RTL = 1;
@@ -291,15 +291,15 @@ const ActionEditor = GObject.registerClass({
 const PadDiagram = GObject.registerClass({
     Properties: {
         'left-handed': GObject.ParamSpec.boolean(
-            'left-handed', 'left-handed', 'Left handed',
+            'left-handed', null, null,
             GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT_ONLY,
             false),
         'image': GObject.ParamSpec.string(
-            'image', 'image', 'Image',
+            'image',  null, null,
             GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT_ONLY,
             null),
         'editor-actor': GObject.ParamSpec.object(
-            'editor-actor', 'editor-actor', 'Editor actor',
+            'editor-actor', null, null,
             GObject.ParamFlags.READWRITE | GObject.ParamFlags.CONSTRUCT_ONLY,
             Clutter.Actor.$gtype),
     },

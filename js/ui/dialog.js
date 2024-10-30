@@ -56,6 +56,7 @@ class Dialog extends St.Widget {
         this._dialog.add_child(this.contentLayout);
 
         this.buttonLayout = new St.Widget({
+            style_class: 'modal-dialog-button-box',
             layout_manager: new Clutter.BoxLayout({
                 spacing: 12,
                 homogeneous: true,
@@ -124,7 +125,7 @@ class Dialog extends St.Widget {
             keys = [];
 
         let button = new St.Button({
-            style_class: 'modal-dialog-linked-button',
+            style_class: 'modal-dialog-button',
             button_mask: St.ButtonMask.ONE | St.ButtonMask.THREE,
             reactive: true,
             can_focus: true,
@@ -159,12 +160,12 @@ class Dialog extends St.Widget {
 export const MessageDialogContent = GObject.registerClass({
     Properties: {
         'title': GObject.ParamSpec.string(
-            'title', 'title', 'title',
+            'title', null, null,
             GObject.ParamFlags.READWRITE |
             GObject.ParamFlags.CONSTRUCT,
             null),
         'description': GObject.ParamSpec.string(
-            'description', 'description', 'description',
+            'description', null, null,
             GObject.ParamFlags.READWRITE |
             GObject.ParamFlags.CONSTRUCT,
             null),
@@ -251,7 +252,7 @@ export const MessageDialogContent = GObject.registerClass({
 export const ListSection = GObject.registerClass({
     Properties: {
         'title': GObject.ParamSpec.string(
-            'title', 'title', 'title',
+            'title', null, null,
             GObject.ParamFlags.READWRITE |
             GObject.ParamFlags.CONSTRUCT,
             null),
@@ -295,16 +296,16 @@ export const ListSection = GObject.registerClass({
 export const ListSectionItem = GObject.registerClass({
     Properties: {
         'icon-actor':  GObject.ParamSpec.object(
-            'icon-actor', 'icon-actor', 'Icon actor',
+            'icon-actor', null, null,
             GObject.ParamFlags.READWRITE,
             Clutter.Actor.$gtype),
         'title': GObject.ParamSpec.string(
-            'title', 'title', 'title',
+            'title', null, null,
             GObject.ParamFlags.READWRITE |
             GObject.ParamFlags.CONSTRUCT,
             null),
         'description': GObject.ParamSpec.string(
-            'description', 'description', 'description',
+            'description', null, null,
             GObject.ParamFlags.READWRITE |
             GObject.ParamFlags.CONSTRUCT,
             null),

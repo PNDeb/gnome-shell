@@ -495,7 +495,7 @@ export class InputSourceManager extends Signals.EventEmitter {
         this._changePerWindowSource();
     }
 
-    async activateInputSource(is, interactive) {
+    activateInputSource(is, interactive) {
         // The focus changes during holdKeyboard/releaseKeyboard may trick
         // the client into hiding UI containing the currently focused entry.
         // So holdKeyboard/releaseKeyboard are not called when
@@ -503,7 +503,8 @@ export class InputSourceManager extends Signals.EventEmitter {
         // E.g. Focusing on a password entry in a popup in Xorg Firefox
         // will emit 'set-content-type' signal.
         // https://gitlab.gnome.org/GNOME/gnome-shell/issues/391
-        if (!this._reloading)
+        const holdKeyboard = !this._reloading;
+        if (holdKeyboard)
             KeyboardManager.holdKeyboard();
         this._keyboardManager.apply(is.xkbId);
 
@@ -519,9 +520,10 @@ export class InputSourceManager extends Signals.EventEmitter {
         else
             engine = 'xkb:us::eng';
 
-        await this._ibusManager.setEngine(engine);
-        if (!this._reloading)
-            KeyboardManager.releaseKeyboard();
+        this._ibusManager.setEngine(engine).then(() => {
+            if (holdKeyboard)
+                KeyboardManager.releaseKeyboard();
+        });
 
         this._currentInputSourceChanged(is);
 
