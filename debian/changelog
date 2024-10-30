@@ -1,3 +1,9 @@
+gnome-shell (47.1-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Simon McVittie <smcv@debian.org>  Wed, 30 Oct 2024 10:19:42 +0000
+
 gnome-shell (47.0-3) unstable; urgency=medium
 
   * Release to unstable (Closes: #1060684)
