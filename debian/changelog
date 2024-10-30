@@ -1,12 +1,13 @@
-gnome-shell (47.1-1) UNRELEASED; urgency=medium
+gnome-shell (47.1-1) experimental; urgency=medium
 
+  * Team upload
   * New upstream release
   * d/upstream/metadata: Canonicalize case of repository URL
   * Refresh patch series.
     Drop "status/keyboard: Fix execution order when activating source"
     which was fixed differently after upstream review.
 
- -- Simon McVittie <smcv@debian.org>  Wed, 30 Oct 2024 10:51:10 +0000
+ -- Simon McVittie <smcv@debian.org>  Wed, 30 Oct 2024 10:52:18 +0000
 
 gnome-shell (47.0-3) unstable; urgency=medium
 
