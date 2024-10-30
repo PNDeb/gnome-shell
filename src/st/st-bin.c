@@ -28,9 +28,7 @@
  * #StBin inherits from #StWidget, so it is fully themable.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include <clutter/clutter.h>
 
@@ -207,9 +205,7 @@ st_bin_class_init (StBinClass *klass)
    * The child #ClutterActor of the #StBin container.
    */
   props[PROP_CHILD] =
-    g_param_spec_object ("child",
-                         "Child",
-                         "The child of the Bin",
+    g_param_spec_object ("child", NULL, NULL,
                          CLUTTER_TYPE_ACTOR,
                          ST_PARAM_READWRITE | G_PARAM_EXPLICIT_NOTIFY);
 
